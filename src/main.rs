@@ -4,19 +4,40 @@
 #![test_runner(os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+
+extern crate alloc;
+
 use core::panic::PanicInfo;
-use os::{init, println};
+use bootloader::{BootInfo, entry_point};
+use os::{memory::BootInfoFrameAllocator, println};
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
+entry_point!(kernel_main);
+
+
+fn kernel_main(boot_info: &'static BootInfo) -> ! {
+    use os::memory;
+    use os::allocator;
+    use x86_64::{VirtAddr};
+
+
     println!("Hello World{}", "!");
+    os::init();
 
-    init();
+    
 
-    #[cfg(test)]
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut frame_allocator = unsafe {
+        BootInfoFrameAllocator::init(&boot_info.memory_map)
+    };
+
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+
+
+    #[cfg(test)]    
     test_main();
     
-    loop {}
+    os::hlt_loop()
 }
 
 
@@ -24,7 +45,7 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    os::hlt_loop();
 }
 
 #[cfg(test)]
