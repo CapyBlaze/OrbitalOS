@@ -5,6 +5,9 @@ edition = "2021"
 
 [dependencies]
 bootloader = { version = "0.9", features = ["map_physical_memory"]}
+crossbeam-queue = { version = "0.3", default-features = false, features = ["alloc"] }
+conquer-once = { version = "0.4", default-features = false }
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 volatile = "0.2.6"
 spin = "0.5.2"
 x86_64 = "0.15.4"

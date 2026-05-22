@@ -10,11 +10,15 @@ extern crate alloc;
 pub mod vga_buffer;
 pub mod serial;
 pub mod interrupts;
+pub mod keyboard;
 pub mod gdt;
 pub mod memory;
 pub mod allocator;
+pub mod task;
+pub mod shell;
 
-use core::panic::PanicInfo;
+use core::{panic::PanicInfo, task::Context};
+use futures_util::task::noop_waker;
 
 #[cfg(test)]
 use bootloader::{entry_point, BootInfo};
@@ -25,7 +29,11 @@ entry_point!(test_kernel_main);
 
 #[cfg(test)]
 fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
-    init();
+    gdt::init();
+    interrupts::init_idt();
+    unsafe { interrupts::PICS.lock().initialize() };
+    x86_64::instructions::interrupts::enable();
+
     test_main();
     hlt_loop()
 }
@@ -40,10 +48,20 @@ pub fn init() {
 }
 
 pub fn hlt_loop() -> ! {
+    let mut task =
+    task::Task::new(
+        keyboard::print_keypresses()
+    );
+
+    let waker = noop_waker();
+    let mut context = Context::from_waker(&waker);
+
     loop {
+        let _ = task.poll(&mut context);
         x86_64::instructions::hlt();
     }
 }
+
 
 
 pub trait Testable {

@@ -9,30 +9,17 @@ extern crate alloc;
 
 use core::panic::PanicInfo;
 use bootloader::{BootInfo, entry_point};
-use os::{memory::BootInfoFrameAllocator, println};
+use os::println;
 
 entry_point!(kernel_main);
 
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    use os::memory;
-    use os::allocator;
-    use x86_64::{VirtAddr};
+    println!("Hello World!");
 
-
-    println!("Hello World{}", "!");
     os::init();
-
-    
-
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    let mut frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(&boot_info.memory_map)
-    };
-
-    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
-
+    os::allocator::init(boot_info);
+    os::keyboard::init();
 
     #[cfg(test)]    
     test_main();

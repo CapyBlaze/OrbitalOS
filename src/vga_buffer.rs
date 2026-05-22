@@ -30,10 +30,10 @@ pub enum Color {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-struct ColorCode(u8);
+pub struct ColorCode(u8);
 
 impl ColorCode {
-    fn new(foreground: Color, background: Color) -> ColorCode {
+    pub fn new(foreground: Color, background: Color) -> ColorCode {
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
 }
@@ -114,6 +114,10 @@ impl Writer {
             self.buffer.chars[row][col].write(blank);
         }
     }
+
+    pub fn set_color(&mut self, color: ColorCode) {
+        self.color_code = color;
+    }
 }
 
 impl fmt::Write for Writer {
@@ -126,7 +130,7 @@ impl fmt::Write for Writer {
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,
-        color_code: ColorCode::new(Color::Yellow, Color::Black),
+        color_code: ColorCode::new(Color::White, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
 }
@@ -144,6 +148,31 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
+#[macro_export]
+macro_rules! color_print {
+    ($color:expr, $($arg:tt)*) => ({
+        $crate::vga_buffer::_color_print(
+            $color,
+            format_args!($($arg)*)
+        );
+    });
+}
+
+#[macro_export]
+macro_rules! color_println {
+    ($color:expr) => (
+        $crate::color_print!($color, "\n")
+    );
+
+    ($color:expr, $($arg:tt)*) => (
+        $crate::color_print!(
+            $color,
+            "{}\n",
+            format_args!($($arg)*)
+        )
+    );
+}
+
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
@@ -152,6 +181,24 @@ pub fn _print(args: fmt::Arguments) {
     interrupts::without_interrupts(|| {
         WRITER.lock().write_fmt(args).unwrap();
     })
+}
+
+#[doc(hidden)]
+pub fn _color_print(
+    color: ColorCode,
+    args: fmt::Arguments
+) {
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        let old_color = writer.color_code;
+
+        writer.set_color(color);
+        writer.write_fmt(args).unwrap();
+        writer.set_color(old_color);
+    });
 }
 
 
