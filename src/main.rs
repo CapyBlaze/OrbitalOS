@@ -9,29 +9,32 @@ extern crate alloc;
 
 use core::panic::PanicInfo;
 use bootloader::{BootInfo, entry_point};
-use os::println;
+use os::{color_println, task::{Task, executor::Executor}, vga_buffer::{Color, ColorCode}};
 
 entry_point!(kernel_main);
 
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    println!("Hello World!");
+    color_println!(ColorCode::new(Color::LightCyan, Color::Black), "Hello World!");
 
     os::init();
     os::allocator::init(boot_info);
-    os::keyboard::init();
+    os::task::keyboard::init();
 
-    #[cfg(test)]    
+    #[cfg(test)]
     test_main();
     
-    os::hlt_loop()
+    let mut executor = Executor::new();
+    executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
+    executor.spawn(Task::new("Counter", os::task::counter_task()));
+    executor.run();
 }
 
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    println!("{}", info);
+    color_println!(ColorCode::new(Color::LightRed, Color::Black), "{}", info);
     os::hlt_loop();
 }
 

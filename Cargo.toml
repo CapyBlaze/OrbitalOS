@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bootloader = { version = "0.9", features = ["map_physical_memory"]}
-crossbeam-queue = { version = "0.3", default-features = false, features = ["alloc"] }
-conquer-once = { version = "0.4", default-features = false }
-futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+bootloader = {version = "0.9", features = ["map_physical_memory"]}
+lazy_static = {version = "1.0", features = ["spin_no_std"]}
+crossbeam-queue = {version = "0.3", default-features = false, features = ["alloc"]}
+conquer-once = {version = "0.4", default-features = false}
+futures-util = {version = "0.3.4", default-features = false, features = ["alloc"]}
 volatile = "0.2.6"
 spin = "0.5.2"
 x86_64 = "0.15.4"
@@ -15,10 +16,6 @@ uart_16550 = "0.6.0"
 pic8259 = "0.10.1"
 pc-keyboard = "0.7.0"
 linked_list_allocator = "0.9.0"
-
-[dependencies.lazy_static]
-version = "1.0"
-features = ["spin_no_std"]
 
 [profile.dev]
 panic = "abort"

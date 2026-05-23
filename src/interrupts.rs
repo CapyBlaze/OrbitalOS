@@ -1,3 +1,5 @@
+use core::sync::atomic::Ordering;
+
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use lazy_static::lazy_static;
 use crate::{gdt, hlt_loop, println};
@@ -58,6 +60,12 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    crate::task::TICKS.fetch_add(
+        1,
+        Ordering::Relaxed
+    );
+    crate::task::sleep::wake_sleeping_tasks();
+
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }
@@ -68,7 +76,6 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 
     let mut port = Port::new(0x60);
     let scancode: u8 = unsafe { port.read() };
-
     crate::keyboard::add_scancode(scancode);
 
     unsafe {

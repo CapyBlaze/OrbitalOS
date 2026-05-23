@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::{color_print, print, println, vga_buffer::{Color, ColorCode}};
+use crate::{clear_screen, color_print, print, println, vga_buffer::{Color, ColorCode}};
 
 pub struct Shell {
     buffer: String,
@@ -14,7 +14,7 @@ impl Shell {
     }
 
     pub fn prompt(&self) {
-        color_print!(ColorCode::new(Color::Green, Color::Black), "> ");
+        color_print!(ColorCode::new(Color::LightGreen, Color::Black), "> ");
     }
 
     pub fn handle_char(&mut self, c: char) {
@@ -43,12 +43,25 @@ impl Shell {
     fn execute(&self) {
         match self.buffer.trim() {
             "help" => {
-                println!("help clear echo");
+                println!("help clear tasks");
             }
 
             "clear" => {
-                for _ in 0..50 {
-                    println!();
+                clear_screen!();
+            }
+
+            "tasks" => {
+                let manager = crate::task::manager::TASK_MANAGER.lock();
+
+                println!("ID NAME STATE CPU");
+                for task in manager.list_tasks() {
+                    println!(
+                        "{} {} {:?} {}",
+                        task.id.get(),
+                        task.name,
+                        task.state,
+                        task.cpu_ticks
+                    );
                 }
             }
 

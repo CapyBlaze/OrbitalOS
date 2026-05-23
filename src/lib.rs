@@ -10,18 +10,18 @@ extern crate alloc;
 pub mod vga_buffer;
 pub mod serial;
 pub mod interrupts;
-pub mod keyboard;
 pub mod gdt;
 pub mod memory;
 pub mod allocator;
 pub mod task;
 pub mod shell;
 
-use core::{panic::PanicInfo, task::Context};
-use futures_util::task::noop_waker;
+use core::{panic::PanicInfo};
 
 #[cfg(test)]
 use bootloader::{entry_point, BootInfo};
+
+use crate::task::keyboard;
 
 #[cfg(test)]
 entry_point!(test_kernel_main);
@@ -48,16 +48,7 @@ pub fn init() {
 }
 
 pub fn hlt_loop() -> ! {
-    let mut task =
-    task::Task::new(
-        keyboard::print_keypresses()
-    );
-
-    let waker = noop_waker();
-    let mut context = Context::from_waker(&waker);
-
     loop {
-        let _ = task.poll(&mut context);
         x86_64::instructions::hlt();
     }
 }

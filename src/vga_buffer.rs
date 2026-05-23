@@ -173,13 +173,22 @@ macro_rules! color_println {
     );
 }
 
+#[macro_export]
+macro_rules! clear_screen {
+    () => {
+        $crate::vga_buffer::_clear_screen();
+    };
+}
+
+
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     use x86_64::instructions::interrupts;
 
     interrupts::without_interrupts(|| {
-        WRITER.lock().write_fmt(args).unwrap();
+        let mut writer = WRITER.lock();
+        writer.write_fmt(args).unwrap();
     })
 }
 
@@ -198,6 +207,19 @@ pub fn _color_print(
         writer.set_color(color);
         writer.write_fmt(args).unwrap();
         writer.set_color(old_color);
+    });
+}
+
+#[doc(hidden)]
+pub fn _clear_screen() {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        for row in 0..BUFFER_HEIGHT {
+            writer.clear_row(row);
+        }
+        writer.column_position = 0;
     });
 }
 

@@ -8,6 +8,7 @@ use core::{
     task::{Context, Poll},
 };
 
+use crate::println;
 use crate::shell::Shell;
 
 
@@ -20,7 +21,13 @@ pub fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
         if queue.push(scancode).is_ok() {
             WAKER.wake();
+
+        } else {
+            println!("WARNING: scancode queue full; dropping keyboard input");
         }
+
+    } else {
+        println!("WARNING: scancode queue uninitialized");
     }
 }
 
