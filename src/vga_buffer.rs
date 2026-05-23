@@ -1,4 +1,5 @@
 use volatile::Volatile;
+use x86_64::instructions::port::Port;
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -58,6 +59,7 @@ struct Buffer {
 
 pub struct Writer {
     column_position: usize,
+    row_position: usize,
     color_code: ColorCode,
     buffer: &'static mut Buffer,
 }
@@ -71,15 +73,17 @@ impl Writer {
                     self.new_line();
                 }
 
-                let row = BUFFER_HEIGHT - 1;
+                let row = self.row_position;
                 let col = self.column_position;
 
                 let color_code = self.color_code;
+
                 self.buffer.chars[row][col].write(ScreenChar {
                     ascii_character: byte,
                     color_code,
                 });
                 self.column_position += 1;
+                self.update_cursor();
             }
         }
     }
@@ -95,14 +99,41 @@ impl Writer {
     }
 
     fn new_line(&mut self) {
-        for row in 1..BUFFER_HEIGHT {
-            for col in 0..BUFFER_WIDTH {
-                let character = self.buffer.chars[row][col].read();
-                self.buffer.chars[row - 1][col].write(character);
-            }
+        if self.row_position >= BUFFER_HEIGHT - 1 {
+            self.scroll_up();
+        } else {
+            self.row_position += 1;
         }
-        self.clear_row(BUFFER_HEIGHT - 1);
         self.column_position = 0;
+        self.update_cursor();
+    }
+
+    fn backspace(&mut self) {
+        if self.column_position > 0 {
+            self.column_position -= 1;
+            let row = self.row_position;
+            let col = self.column_position;
+
+            let blank = ScreenChar {
+                ascii_character: b' ',
+                color_code: self.color_code,
+            };
+            self.buffer.chars[row][col].write(blank);
+
+        } else {
+            self.column_position = BUFFER_WIDTH - 1;
+            self.row_position = self.row_position.saturating_sub(1);
+
+            let row = self.row_position;
+            let col = self.column_position;
+
+            let blank = ScreenChar {
+                ascii_character: b' ',
+                color_code: self.color_code,
+            };
+            self.buffer.chars[row][col].write(blank);
+        }
+        self.update_cursor();
     }
 
     fn clear_row(&mut self, row: usize) {
@@ -110,8 +141,35 @@ impl Writer {
             ascii_character: b' ',
             color_code: self.color_code,
         };
+
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[row][col].write(blank);
+        }
+    }
+
+    fn scroll_up(&mut self) {
+        for row in 1..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                let character = self.buffer.chars[row][col].read();
+                self.buffer.chars[row - 1][col].write(character);
+            }
+        }
+
+        self.clear_row(BUFFER_HEIGHT - 1);
+    }
+
+    fn update_cursor(&mut self) {
+        let pos = self.row_position * BUFFER_WIDTH + self.column_position;
+
+        unsafe {
+            let mut command_port = Port::new(0x3D4);
+            let mut data_port = Port::new(0x3D5);
+
+            command_port.write(0x0F_u8);
+            data_port.write((pos & 0xFF) as u8);
+
+            command_port.write(0x0E_u8);
+            data_port.write(((pos >> 8) & 0xFF) as u8);
         }
     }
 
@@ -130,6 +188,7 @@ impl fmt::Write for Writer {
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,
+        row_position: 0,
         color_code: ColorCode::new(Color::White, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
@@ -171,6 +230,13 @@ macro_rules! color_println {
             format_args!($($arg)*)
         )
     );
+}
+
+#[macro_export]
+macro_rules! backspace {
+    () => {
+        $crate::vga_buffer::_backspace();
+    };
 }
 
 #[macro_export]
@@ -220,6 +286,18 @@ pub fn _clear_screen() {
             writer.clear_row(row);
         }
         writer.column_position = 0;
+        writer.row_position = 0;
+        writer.update_cursor();
+    });
+}
+
+#[doc(hidden)]
+pub fn _backspace() {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writer.backspace();
     });
 }
 

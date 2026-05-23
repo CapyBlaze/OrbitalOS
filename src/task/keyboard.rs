@@ -91,6 +91,10 @@ pub async fn print_keypresses() {
                     DecodedKey::Unicode(c) => shell.handle_char(c),
                     DecodedKey::RawKey(pc_keyboard::KeyCode::Return) => shell.handle_char('\n'),
                     DecodedKey::RawKey(pc_keyboard::KeyCode::Backspace) => shell.handle_char('\x08'),
+                    DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowUp) => {},
+                    DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowDown) => {},
+                    DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowLeft) => {},
+                    DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowRight) => {},
                     _ => {}
                 }
             }

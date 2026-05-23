@@ -26,7 +26,6 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     
     let mut executor = Executor::new();
     executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
-    executor.spawn(Task::new("Counter", os::task::counter_task()));
     executor.run();
 }
 

@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::{clear_screen, color_print, print, println, vga_buffer::{Color, ColorCode}};
+use crate::{backspace, clear_screen, color_print, print, println, vga_buffer::{Color, ColorCode}};
 
 pub struct Shell {
     buffer: String,
@@ -29,7 +29,7 @@ impl Shell {
 
             '\x08' => {
                 if self.buffer.pop().is_some() {
-                    print!("\x08 \x08");
+                    backspace!();
                 }
             }
 

@@ -85,17 +85,3 @@ impl TaskId {
         self.0
     }
 }
-
-
-
-pub async fn counter_task() {
-    // let mut counter = 0;
-
-    loop {
-        // counter += 1;
-
-        // println!("counter: {}", counter);
-
-        sleep::sleep(10).await;
-    }
-}   
