@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::{backspace, clear_screen, color_print, print, println, vga_buffer::{Color, ColorCode}};
+use crate::{backspace, clear_screen, color_print, drivers, print, println, vga_buffer::{Color, ColorCode}};
 
 pub struct Shell {
     buffer: String,
@@ -63,6 +63,24 @@ impl Shell {
                         task.cpu_ticks
                     );
                 }
+            }
+
+            "rtc" => {
+                let time = drivers::rtc::read_rtc();
+
+                println!(
+                    "{:02}:{:02}:{:02}",
+                    time.hour,
+                    time.minute,
+                    time.second
+                );
+
+                println!(
+                    "{:02}/{:02}/20{:02}",
+                    time.day,
+                    time.month,
+                    time.year
+                );
             }
 
             "" => {}

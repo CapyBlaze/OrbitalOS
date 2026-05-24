@@ -15,6 +15,9 @@ pub mod memory;
 pub mod allocator;
 pub mod task;
 pub mod shell;
+pub mod drivers {
+    pub mod rtc;
+}
 
 use core::{panic::PanicInfo};
 
