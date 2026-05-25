@@ -1,4 +1,4 @@
-use core::slice;
+use core::{ptr::null_mut, slice};
 use spin::Mutex;
 
 
@@ -26,6 +26,10 @@ pub struct FrameBuffer {
     pub stride: usize,
 }
 
+unsafe impl Send for FrameBuffer {}
+unsafe impl Sync for FrameBuffer {}
+
+
 struct FrameBufferState {
     buffer: &'static mut [u8],
     stride_bytes: usize,
@@ -35,17 +39,42 @@ struct FrameBufferState {
 
 static FB_STATE: Mutex<Option<FrameBufferState>> = Mutex::new(None);
 
-pub fn init(framebuffer: &'static FrameBuffer) {
+
+pub static FRAMEBUFFER: Mutex<FrameBuffer> = Mutex::new(FrameBuffer {
+    buffer_ptr: null_mut(),
+    buffer_size: 0,
+    width: 0,
+    height: 0,
+    stride: 0,
+});
+
+
+
+pub unsafe fn init(vbe_info: *const u8) {
+    let pitch  = *(vbe_info.add(16) as *const u16) as usize;
+    let width  = *(vbe_info.add(18) as *const u16) as usize;
+    let height = *(vbe_info.add(20) as *const u16) as usize;
+    let fb_addr = *(vbe_info.add(40) as *const u32);
+    let fb_ptr = fb_addr as *mut u8;
+
+    let mut fb = FRAMEBUFFER.lock();
+    fb.buffer_ptr = fb_ptr;
+    fb.width = width;
+    fb.height = height;
+    fb.stride = pitch;
+    fb.buffer_size = pitch * height;
+
+
     let buffer_slice = unsafe {
-        slice::from_raw_parts_mut(framebuffer.buffer_ptr, framebuffer.buffer_size)
+        slice::from_raw_parts_mut(fb.buffer_ptr, fb.buffer_size)
     };
 
     let mut guard = FB_STATE.lock();
     *guard = Some(FrameBufferState {
         buffer: buffer_slice,
-        stride_bytes: framebuffer.stride,
-        width: framebuffer.width,
-        height: framebuffer.height,
+        stride_bytes: fb.stride,
+        width: fb.width,
+        height: fb.height,
     });
 }
 

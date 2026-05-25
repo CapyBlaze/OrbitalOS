@@ -8,7 +8,7 @@ use core::{
     task::{Context, Poll},
 };
 
-use crate::println;
+use crate::serial_println;
 use crate::shell::Shell;
 
 
@@ -23,11 +23,11 @@ pub fn add_scancode(scancode: u8) {
             WAKER.wake();
 
         } else {
-            println!("WARNING: scancode queue full; dropping keyboard input");
+            serial_println!("WARNING: scancode queue full; dropping keyboard input");
         }
 
     } else {
-        println!("WARNING: scancode queue uninitialized");
+        serial_println!("WARNING: scancode queue uninitialized");
     }
 }
 
