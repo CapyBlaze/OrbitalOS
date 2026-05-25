@@ -13,6 +13,8 @@ pub struct FrameBuffer {
 struct FrameBufferState {
     buffer: &'static mut [u8],
     stride_bytes: usize,
+    width: usize,
+    height: usize,
 }
 
 static FB_STATE: Mutex<Option<FrameBufferState>> = Mutex::new(None);
@@ -26,29 +28,48 @@ pub fn init(framebuffer: &'static FrameBuffer) {
     *guard = Some(FrameBufferState {
         buffer: buffer_slice,
         stride_bytes: framebuffer.stride,
+        width: framebuffer.width,
+        height: framebuffer.height,
     });
 }
 
-pub fn put_pixel(x: usize, y: usize, color: [u8; 4]) {
+pub fn put_pixel(x: usize, y: usize, color: u16) {
     if let Some(ref mut state) = *FB_STATE.lock() {
-        let i = y * state.stride_bytes + x * 4;
+        let pitch_pixels = state.stride_bytes / 2;
 
-        if i + 3 < state.buffer.len() {
-            state.buffer[i]     = color[0];
-            state.buffer[i + 1] = color[1];
-            state.buffer[i + 2] = color[2];
-            state.buffer[i + 3] = color[3];
+        let buffer = unsafe {
+            core::slice::from_raw_parts_mut(
+                state.buffer.as_mut_ptr() as *mut u16,
+                state.buffer.len() / 2,
+            )
+        };
+
+        let i = y * pitch_pixels + x;
+
+        if i < buffer.len() {
+            buffer[i] = color;
         }
     }
 }
 
-pub fn clear(color: [u8; 4]) {
+pub fn clear(color: u16) {
     if let Some(ref mut state) = *FB_STATE.lock() {
-        for i in (0..state.buffer.len()).step_by(4) {
-            state.buffer[i]     = color[0];
-            state.buffer[i + 1] = color[1];
-            state.buffer[i + 2] = color[2];
-            state.buffer[i + 3] = color[3];
+
+        let pitch_pixels = state.stride_bytes / 2;
+
+        let buffer = unsafe {
+            core::slice::from_raw_parts_mut(
+                state.buffer.as_mut_ptr() as *mut u16,
+                state.buffer.len() / 2,
+            )
+        };
+
+        for y in 0..state.height {
+            let row = y * pitch_pixels;
+
+            for x in 0..state.width {
+                buffer[row + x] = color;
+            }
         }
     }
 }
@@ -56,7 +77,7 @@ pub fn clear(color: [u8; 4]) {
 pub fn draw_test() {
     for x in 0..200 {
         for y in 0..200 {
-            put_pixel(x, y, [255, 0, 0, 255]); // rouge
+            put_pixel(x, y, 0xF800); // rouge
         }
     }
 }

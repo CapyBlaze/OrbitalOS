@@ -33,7 +33,7 @@ hang:
 dap_stage2:
     db 0x10
     db 0x00
-    dw 0x3 ; a peut etre augmenter nombre de secteur du stage 2
+    dw 0x3
     dw 0x7E00
     dw 0x0000
     dq 0x1

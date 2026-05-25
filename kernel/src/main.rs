@@ -76,13 +76,21 @@ pub extern "C" fn _start(
         core::arch::asm!("cli");
     }
 
-    let fb_addr = unsafe { *vbe_info.add(10) };
+    let vbe = vbe_info as *const u8;
+
+    let pitch  = unsafe { *(vbe.add(16) as *const u16) } as usize;
+    let width  = unsafe { *(vbe.add(18) as *const u16) } as usize;
+    let height = unsafe { *(vbe.add(20) as *const u16) } as usize;
+
+    let fb_addr = unsafe { *(vbe.add(40) as *const u32) };
     let fb_ptr = fb_addr as *mut u8;
 
-    let width = 800;
-    let height = 600;
-    let stride = width * 4;
-    let tot_bytes = width * height * 4;
+    let bpp = unsafe { *(vbe.add(25) as *const u8) };
+
+    os::serial_println!("pitch {}", pitch);
+    os::serial_println!("width {}", width);
+    os::serial_println!("height {}", height);
+    os::serial_println!("bpp {}", bpp);
 
     static mut FB_STRUCT: os::framebuffer::FrameBuffer = os::framebuffer::FrameBuffer {
         buffer_ptr: core::ptr::null_mut(),
@@ -96,12 +104,13 @@ pub extern "C" fn _start(
         FB_STRUCT.buffer_ptr = fb_ptr;
         FB_STRUCT.width = width;
         FB_STRUCT.height = height;
-        FB_STRUCT.stride = stride;
-        FB_STRUCT.buffer_size = tot_bytes;
+        FB_STRUCT.stride = pitch;
+        FB_STRUCT.buffer_size = pitch * height;
         os::framebuffer::init(&FB_STRUCT);
     }
 
-    os::framebuffer::clear([0x00, 0xFF, 0xFF, 0xFF]);
+    os::framebuffer::clear(0x0000);
+    os::framebuffer::draw_test();
 
     loop {
         unsafe { core::arch::asm!("hlt") }
