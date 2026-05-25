@@ -16,10 +16,13 @@ kernel_entry:
     mov ss, ax
 
     mov rsp, 0x90000
-    mov rdi, 0x7000
 
-    mov byte [0xb8000], 'X'
+    mov byte [0xb8000], 'K'
     mov byte [0xb8001], 0x0f
+
+    mov rdi, 0x7000
+    mov rsi, 0x8000
+    mov rdx, [0x9000]
 
     mov rax, _start
     call rax

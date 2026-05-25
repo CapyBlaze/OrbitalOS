@@ -8,7 +8,6 @@ use core::{
     task::{Context, Poll},
 };
 
-use crate::serial_println;
 use crate::shell::Shell;
 
 
@@ -19,22 +18,13 @@ static WAKER: AtomicWaker = AtomicWaker::new();
 
 pub fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
-        if queue.push(scancode).is_ok() {
-            WAKER.wake();
-
-        } else {
-            serial_println!("WARNING: scancode queue full; dropping keyboard input");
-        }
-
-    } else {
-        serial_println!("WARNING: scancode queue uninitialized");
+        let _ = queue.push(scancode);
+        WAKER.wake();
     }
 }
 
 pub fn init() {
-    SCANCODE_QUEUE
-        .try_init_once(|| ArrayQueue::new(100))
-        .expect("keyboard::init called twice");
+    let _ = SCANCODE_QUEUE.try_init_once(|| ArrayQueue::new(100));
 }
 
 pub struct ScancodeStream;

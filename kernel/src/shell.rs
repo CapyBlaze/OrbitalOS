@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::drivers;
+use crate::{drivers, serial_println};
 
 pub struct Shell {
     buffer: String,
@@ -21,6 +21,7 @@ impl Shell {
         match c {
             '\n' => {
                 // println!();
+                serial_println!("Executing command: {}", c);
 
                 self.execute();
                 self.buffer.clear();

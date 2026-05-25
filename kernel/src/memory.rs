@@ -4,41 +4,23 @@ use x86_64::{
 };
 
 
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(C)]
-pub enum MemoryRegionType {
-    Usable = 1,
-    Reserved = 2,
-    AcpiReclaimable = 3,
-    AcpiNvs = 4,
-    BadMemory = 5,
-}
-
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct MemoryRegion {
-    pub start_addr: u64,
-    pub end_addr: u64,
-    pub region_type: MemoryRegionType,
+    pub base: u64,
+    pub length: u64,
+    pub region_type: u32,
+    pub acpi: u32,
 }
-
-#[repr(C)]
-pub struct MemoryMap {
-    pub regions: [MemoryRegion; 256],
-    pub region_count: usize,
-}
-
-
 
 
 pub struct BootInfoFrameAllocator {
-    memory_map: &'static MemoryMap,
+    memory_map: &'static [MemoryRegion],
     next: usize,
 }
 
 impl BootInfoFrameAllocator {
-    pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
+    pub unsafe fn init(memory_map: &'static [MemoryRegion]) -> Self {
         BootInfoFrameAllocator {
             memory_map,
             next: 0,
@@ -46,13 +28,28 @@ impl BootInfoFrameAllocator {
     }
 
     fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
-        let regions = self.memory_map.regions[..self.memory_map.region_count].iter();
+        const MIN_USABLE_ADDR: u64 = 0x200000; // Skip low memory used by bootloader/kernel
+        const MAX_MAPPED_ADDR: u64 = 0x1_0000_0000; // Identity map covers 0..4GiB
+
+        let regions = self.memory_map.iter();
         
         let usable_regions = regions
-            .filter(|r| r.region_type == MemoryRegionType::Usable);
+            .filter(|r| r.region_type == 1);
 
         let addr_ranges = usable_regions
-            .map(|r| r.start_addr..r.end_addr);
+            .filter_map(|r| {
+                if r.base >= MAX_MAPPED_ADDR {
+                    return None;
+                }
+
+                let start = r.base.max(MIN_USABLE_ADDR);
+                let end = r.base.saturating_add(r.length).min(MAX_MAPPED_ADDR);
+                if start >= end {
+                    None
+                } else {
+                    Some(start..end)
+                }
+            });
             
         let frame_addresses = addr_ranges.flat_map(|r| r.step_by(4096));
 
@@ -70,10 +67,11 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
 }
 
 
-pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
+pub unsafe fn init() -> OffsetPageTable<'static> {
     unsafe {
-        let level_4_table = active_level_4_table(physical_memory_offset);
-        OffsetPageTable::new(level_4_table, physical_memory_offset)
+        let offset = VirtAddr::new(0);
+        let level_4_table = active_level_4_table(offset);
+        OffsetPageTable::new(level_4_table, offset)
     }
 }
 

@@ -8,52 +8,66 @@ extern crate alloc;
 
 use core::panic::PanicInfo;
 use os::{
-    framebuffer::ColorRGB, task::{Task, executor::Executor} 
+    frame_buffer::ColorRGB, memory::MemoryRegion, serial_println,
+    // task::{Task, executor::Executor}
 };
-use x86_64::VirtAddr;
+
 
 
 #[no_mangle]
 pub extern "C" fn _start(
-    vbe_info: *const u32
+    vbe_info: *const u32,
+    memory_map: *const MemoryRegion,
+    memory_map_len: usize,
 ) -> ! {
     os::init();
-
-    // let phys_offset = VirtAddr::new(physical_memory_offset);
-    // os::allocator::init(phys_offset, memory_map);
+    serial_println!("Boot: os::init");
     
-    // os::task::keyboard::init();
+    // Initialize the frame buffer
+    unsafe {
+        os::frame_buffer::init(vbe_info as *const u8);
+    }
+    os::frame_buffer::clear(ColorRGB::new(0x00, 0x00, 0x99));
+    serial_println!("Boot: frame buffer init done");
 
-    // FRAMEBUFFER
-    
+
+    // Initialize the heap allocator
+    let memory_regions = unsafe {
+        core::slice::from_raw_parts(memory_map, memory_map_len)
+    };
+    os::allocator::init(memory_regions);
+    serial_println!("Boot: allocator init done");
+
+
+    // Initialize the keyboard task
+    os::task::keyboard::init();
+    serial_println!("Boot: keyboard init done");
+
+
     // let mut executor = Executor::new();
+    // serial_println!("Boot: executor created");
     // executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
-    // executor.run();
+    // serial_println!("Boot: keyboard task spawned");
 
 
-
-    unsafe {
-        core::arch::asm!("cli");
-    }
-
-    unsafe {
-        os::framebuffer::init(vbe_info as *const u8);
-    }
-
-    os::framebuffer::clear(ColorRGB::new(0x00, 0x00, 0x00));
-    os::framebuffer::draw_test();
+    os::frame_buffer::draw_test();
 
     loop {
-        unsafe { 
-            core::arch::asm!("hlt") 
+        unsafe {
+            core::arch::asm!("hlt");
         }
     }
+
+    // x86_64::instructions::interrupts::enable();
+    // serial_println!("Boot: interrupts enabled, entering executor");
+    // executor.run();
 }
 
 
 #[cfg(not(test))]
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    serial_println!("KERNEL PANIC: {}", info);
     os::hlt_loop();
 }
 

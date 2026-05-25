@@ -8,7 +8,7 @@ use x86_64::{
     VirtAddr,
 };
 
-use crate::{memory::{self, BootInfoFrameAllocator, MemoryMap}};
+use crate::memory::{self, MemoryRegion};
 
 pub mod bump;
 pub mod linked_list;
@@ -34,10 +34,13 @@ unsafe impl GlobalAlloc for Dummy {
 
 
 
-pub fn init(physical_memory_offset: VirtAddr, memory_map: &'static MemoryMap) {
-    let mut mapper = unsafe { memory::init(physical_memory_offset) };
+pub fn init(memory_map: &'static [MemoryRegion]) {
+    let mut mapper = unsafe {
+        memory::init()
+    };
+
     let mut frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(memory_map)
+        memory::BootInfoFrameAllocator::init(memory_map)
     };
     
     init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");

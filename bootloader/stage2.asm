@@ -6,6 +6,10 @@ start:
 	mov ax, 0x2401
 	int 0x15
 
+	; Ensure ES points to 0 for BIOS structures at 0x0000:xxxx
+	xor ax, ax
+	mov es, ax
+
 	; Query VBE mode info
 	mov ax, 0x4F01		; VBE function: get mode info
 	mov cx, 0x118		; Mode number
@@ -32,13 +36,37 @@ start:
 	mov dl, [0x500]
 	int 0x13
 
+	; =========================
+	; BIOS E820 Memory Map
+	; =========================
+
+	xor ebx, ebx
+	mov di, memory_map_buffer
+	xor bp, bp
+
+e820_loop:
+	mov eax, 0xE820
+	mov edx, 0x534D4150
+	mov ecx, 24
+	int 0x15
+
+	jc e820_done
+
+	add di, 24
+	inc bp
+
+	test ebx, ebx
+	jne e820_loop
+
+e820_done:
+	mov [memory_map_entries], bp
 	jmp setup_gdt
 
 ; Loading the Kernal
 kernel_dap:
 	db 0x10
 	db 0x00
-	dw 64
+	dw 128
 	dw 0x0000 ; offset
 	dw 0x1000 ; destination
 	dq 5	; Kernel lives at sector 5
@@ -162,10 +190,10 @@ protected_mode:
 	mov esp, 0x90000 ; new stack is set up in a safe location
 
 	; copy kernel from 0x10000 to 0x100000
-	; exc must match DAP sector count: 64 sectors * 512 / 4 = 8192 dwords
+	; ecx must match DAP sector count: 128 sectors * 512 / 4 = 16384 dwords
 	mov esi, 0x10000	; source -> where we loaded the kernel
 	mov edi, 0x100000	; destination -> where kernel should live
-	mov ecx, 8192		; 8192 * 4 bytes = 32 KB.
+	mov ecx, 16384		; 16384 * 4 bytes = 64 KB.
 	rep movsd
 
 	; rep movsd copy 4 bytes from [ESI] to [EDI], advance both by 4, decrements ECX
@@ -295,6 +323,13 @@ long_mode:
 	or rax, (1 << 9) | (1 << 10)	; OSFXSR | OSXMMEXCPT
 	mov cr4, rax
 
-	mov rax, 0x100000
-    jmp rax
+	mov rdi, 0x7000
+	mov rsi, memory_map_buffer
+	mov rdx, [memory_map_entries]
 
+	mov rax, 0x100000
+	jmp rax
+
+
+memory_map_buffer equ 0x8000
+memory_map_entries equ 0x9000

@@ -35,6 +35,7 @@ struct FrameBufferState {
     stride_bytes: usize,
     width: usize,
     height: usize,
+    bytes_per_pixel: usize,
 }
 
 static FB_STATE: Mutex<Option<FrameBufferState>> = Mutex::new(None);
@@ -54,8 +55,11 @@ pub unsafe fn init(vbe_info: *const u8) {
     let pitch  = *(vbe_info.add(16) as *const u16) as usize;
     let width  = *(vbe_info.add(18) as *const u16) as usize;
     let height = *(vbe_info.add(20) as *const u16) as usize;
+    let bpp    = *(vbe_info.add(25) as *const u8) as usize;
     let fb_addr = *(vbe_info.add(40) as *const u32);
     let fb_ptr = fb_addr as *mut u8;
+    let bytes_per_pixel = (bpp + 7) / 8;
+
 
     let mut fb = FRAMEBUFFER.lock();
     fb.buffer_ptr = fb_ptr;
@@ -75,33 +79,47 @@ pub unsafe fn init(vbe_info: *const u8) {
         stride_bytes: fb.stride,
         width: fb.width,
         height: fb.height,
+        bytes_per_pixel,
     });
 }
 
 pub fn put_pixel(x: usize, y: usize, color: ColorRGB) {
     if let Some(ref mut state) = *FB_STATE.lock() {
-        let i = y * state.stride_bytes + x * 3;
+        let i = y * state.stride_bytes + x * state.bytes_per_pixel;
 
-        if i + 3 < state.buffer.len() {
-            state.buffer[i]     = color.b;
-            state.buffer[i + 1] = color.g;
-            state.buffer[i + 2] = color.r;
+        if i + state.bytes_per_pixel <= state.buffer.len() {
+            state.buffer[i] = color.b;
+            if state.bytes_per_pixel > 1 {
+                state.buffer[i + 1] = color.g;
+            }
+            if state.bytes_per_pixel > 2 {
+                state.buffer[i + 2] = color.r;
+            }
+            if state.bytes_per_pixel > 3 {
+                state.buffer[i + 3] = 0x00;
+            }
         }
     }
 }
 
 pub fn clear(color: ColorRGB) {
     if let Some(ref mut state) = *FB_STATE.lock() {
-
         for y in 0..state.height {
             let row = y * state.stride_bytes;
 
             for x in 0..state.width {
-                let i = row + x * 3;
+                let i = row + x * state.bytes_per_pixel;
 
-                state.buffer[i]     = color.b;
-                state.buffer[i + 1] = color.g;
-                state.buffer[i + 2] = color.r;
+                state.buffer[i] = color.b;
+                if state.bytes_per_pixel > 1 {
+                    state.buffer[i + 1] = color.g;
+                }
+                if state.bytes_per_pixel > 2 {
+                    state.buffer[i + 2] = color.r;
+                }
+                if state.bytes_per_pixel > 3 {
+                    state.buffer[i + 3] = 0x00;
+                }
             }
         }
     }

@@ -17,19 +17,30 @@ pub mod shell;
 pub mod drivers {
     pub mod rtc;
 }
-pub mod framebuffer;
+pub mod frame_buffer;
 
 use core::{panic::PanicInfo};
 use crate::task::keyboard;
 
+#[cfg(test)]
+use crate::memory::MemoryRegion;
+
+
 
 #[cfg(test)]
 #[no_mangle]
-pub extern "C" fn _start(memory_map: &'static crate::memory::MemoryMap, physical_memory_offset: u64) -> ! {
+pub extern "C" fn _start(
+    _vbe_info: *const u32,
+    memory_map: *const MemoryRegion,
+    memory_map_len: usize,
+) -> ! {
     init();
     
-    let phys_offset = x86_64::VirtAddr::new(physical_memory_offset);
-    crate::allocator::init(phys_offset, memory_map);
+    let memory_regions = unsafe {
+        core::slice::from_raw_parts(memory_map, memory_map_len)
+    };
+
+    crate::allocator::init(memory_regions);
     
     test_main();
     hlt_loop()
@@ -41,7 +52,6 @@ pub fn init() {
     gdt::init();
     interrupts::init_idt();
     unsafe { interrupts::PICS.lock().initialize() };
-    x86_64::instructions::interrupts::enable();
 }
 
 pub fn hlt_loop() -> ! {

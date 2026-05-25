@@ -7,6 +7,7 @@
 extern crate alloc;
 
 use os::allocator::HEAP_SIZE;
+use os::memory::MemoryRegion;
 use core::panic::PanicInfo;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -14,21 +15,29 @@ use alloc::vec::Vec;
 
 #[no_mangle]
 pub extern "C" fn _start(
-    memory_map: &'static os::memory::MemoryMap, 
-    physical_memory_offset: u64,
-    _framebuffer: &'static os::framebuffer::FrameBuffer
+    _vbe_info: *const u32,
+    memory_map: *const MemoryRegion,
+    memory_map_len: usize,
 ) -> ! {
     use os::allocator;
-    use os::memory::{self, BootInfoFrameAllocator};
-    use x86_64::VirtAddr;
+    use os::memory;
 
     os::init();
     
-    let phys_mem_offset = VirtAddr::new(physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    let mut frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(memory_map)
+
+    let mut mapper = unsafe {
+        memory::init()
     };
+
+    let memory_regions = unsafe {
+        core::slice::from_raw_parts(memory_map, memory_map_len)
+    };
+
+    let mut frame_allocator = unsafe {
+        memory::BootInfoFrameAllocator::init(memory_regions)
+    };
+    
+
     
     allocator::init_heap(&mut mapper, &mut frame_allocator)
         .expect("heap initialization failed");
