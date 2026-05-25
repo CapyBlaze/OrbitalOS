@@ -1,6 +1,22 @@
 use core::slice;
 use spin::Mutex;
 
+
+pub struct ColorRGB {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl ColorRGB {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+
+}
+
+
+
 #[repr(C)]
 pub struct FrameBuffer {
     pub buffer_ptr: *mut u8,
@@ -33,42 +49,30 @@ pub fn init(framebuffer: &'static FrameBuffer) {
     });
 }
 
-pub fn put_pixel(x: usize, y: usize, color: u16) {
+pub fn put_pixel(x: usize, y: usize, color: ColorRGB) {
     if let Some(ref mut state) = *FB_STATE.lock() {
-        let pitch_pixels = state.stride_bytes / 2;
+        let i = y * state.stride_bytes + x * 3;
 
-        let buffer = unsafe {
-            core::slice::from_raw_parts_mut(
-                state.buffer.as_mut_ptr() as *mut u16,
-                state.buffer.len() / 2,
-            )
-        };
-
-        let i = y * pitch_pixels + x;
-
-        if i < buffer.len() {
-            buffer[i] = color;
+        if i + 3 < state.buffer.len() {
+            state.buffer[i]     = color.b;
+            state.buffer[i + 1] = color.g;
+            state.buffer[i + 2] = color.r;
         }
     }
 }
 
-pub fn clear(color: u16) {
+pub fn clear(color: ColorRGB) {
     if let Some(ref mut state) = *FB_STATE.lock() {
 
-        let pitch_pixels = state.stride_bytes / 2;
-
-        let buffer = unsafe {
-            core::slice::from_raw_parts_mut(
-                state.buffer.as_mut_ptr() as *mut u16,
-                state.buffer.len() / 2,
-            )
-        };
-
         for y in 0..state.height {
-            let row = y * pitch_pixels;
+            let row = y * state.stride_bytes;
 
             for x in 0..state.width {
-                buffer[row + x] = color;
+                let i = row + x * 3;
+
+                state.buffer[i]     = color.b;
+                state.buffer[i + 1] = color.g;
+                state.buffer[i + 2] = color.r;
             }
         }
     }
@@ -77,7 +81,7 @@ pub fn clear(color: u16) {
 pub fn draw_test() {
     for x in 0..200 {
         for y in 0..200 {
-            put_pixel(x, y, 0xF800); // rouge
+            put_pixel(x, y, ColorRGB::new(0xFF, 0x00, 0x00)); // rouge
         }
     }
 }

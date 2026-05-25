@@ -8,7 +8,7 @@ start:
 
 	; Query VBE mode info
 	mov ax, 0x4F01		; VBE function: get mode info
-	mov cx, 0x114		; Mode number
+	mov cx, 0x118		; Mode number
 	mov di, 0x7000		; Where to write the 256 byte structure
 	int 0x10
 	; The Physical framebuffer sits at 0x7000 + 40(offset) into the structure.
@@ -20,7 +20,7 @@ start:
 	;-and its sending a VESA VBE command
 	; al = 0x02 : specific low byte is the VBE command for "Set Video Mode"
 	; al = 0x00 : for quering card info
-	mov bx, 0x4114 ; bx means base register ( BL | BH )
+	mov bx, 0x4118 ; bx means base register ( BL | BH )
 	; 0x0114 is the VESA Mode ID, 0x114 is the standard ID for
 	;-800x600 resolution with 32 bits per pixel, means 4 bytes per pixel. 
 	; 0x4000 sets Bit 14. Linear Framebuffer (LFB) flag.
