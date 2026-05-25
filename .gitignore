@@ -1,3 +1,8 @@
-*/target/
+**/target/
+
+*.o
+*.bin
+*.img
+*.log
+
 TODO.md
-*/WandOs/*

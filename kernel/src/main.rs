@@ -16,12 +16,7 @@ use x86_64::VirtAddr;
 
 #[no_mangle]
 pub extern "C" fn _start(
-    _memory_map: *const u8,
-    _physical_memory_offset: u64,
-    fb_addr: u64,
-    fb_width: u32,
-    fb_height: u32,
-    fb_stride_bytes: u32
+    vbe_info: *const u32
 ) -> ! {
     // os::init();
 
@@ -49,8 +44,45 @@ pub extern "C" fn _start(
     // executor.run();
 
 
-    os::serial_println!("Kernel: _start atteint.");
+    // os::serial_println!("Kernel: _start atteint.");
 
+
+    // static mut FB_STRUCT: os::framebuffer::FrameBuffer = os::framebuffer::FrameBuffer {
+    //     buffer_ptr: core::ptr::null_mut(),
+    //     buffer_size: 0,
+    //     width: 0,
+    //     height: 0,
+    //     stride: 0,
+    // };
+
+    // unsafe {
+    //     FB_STRUCT.buffer_ptr = fb_addr as *mut u8;
+    //     FB_STRUCT.width = fb_width as usize;
+    //     FB_STRUCT.height = fb_height as usize;
+    //     FB_STRUCT.stride = fb_stride_bytes as usize;
+    //     FB_STRUCT.buffer_size = FB_STRUCT.stride * FB_STRUCT.height;
+    //     os::framebuffer::init(&FB_STRUCT);
+    // }
+
+    // // VBE LFB is typically BGRA (little-endian), so red is [0, 0, 255, 0].
+    // os::framebuffer::clear([0, 0, 255, 0]);
+
+
+    // loop {
+    //     unsafe { core::arch::asm!("hlt") }
+    // }
+
+    unsafe {
+        core::arch::asm!("cli");
+    }
+
+    let fb_addr = unsafe { *vbe_info.add(10) };
+    let fb_ptr = fb_addr as *mut u8;
+
+    let width = 800;
+    let height = 600;
+    let stride = width * 4;
+    let tot_bytes = width * height * 4;
 
     static mut FB_STRUCT: os::framebuffer::FrameBuffer = os::framebuffer::FrameBuffer {
         buffer_ptr: core::ptr::null_mut(),
@@ -61,17 +93,15 @@ pub extern "C" fn _start(
     };
 
     unsafe {
-        FB_STRUCT.buffer_ptr = fb_addr as *mut u8;
-        FB_STRUCT.width = fb_width as usize;
-        FB_STRUCT.height = fb_height as usize;
-        FB_STRUCT.stride = fb_stride_bytes as usize;
-        FB_STRUCT.buffer_size = FB_STRUCT.stride * FB_STRUCT.height;
+        FB_STRUCT.buffer_ptr = fb_ptr;
+        FB_STRUCT.width = width;
+        FB_STRUCT.height = height;
+        FB_STRUCT.stride = stride;
+        FB_STRUCT.buffer_size = tot_bytes;
         os::framebuffer::init(&FB_STRUCT);
     }
 
-    // VBE LFB is typically BGRA (little-endian), so red is [0, 0, 255, 0].
-    os::framebuffer::clear([0, 0, 255, 0]);
-
+    os::framebuffer::clear([0x00, 0xFF, 0xFF, 0xFF]);
 
     loop {
         unsafe { core::arch::asm!("hlt") }

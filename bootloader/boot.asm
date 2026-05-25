@@ -1,8 +1,5 @@
-BITS 16
-ORG 0x7C00
-DEFAULT ABS
-
-%define STAGE2_SECTORS 16
+[BITS 16]
+[ORG 0x7C00]
 
 start:
     cld                        
@@ -24,20 +21,22 @@ start:
 
     jmp 0x7E00
 
+disk_error:
+    mov ah, 0x0E
+    mov al, 'E'
+    int 0x10
+
 hang:
     hlt
     jmp hang
 
-; --- SECTION DES DONNEES ET STRUCTURES ---
 dap_stage2:
     db 0x10
     db 0x00
-    dw STAGE2_SECTORS
+    dw 0x3 ; a peut etre augmenter nombre de secteur du stage 2
+    dw 0x7E00
     dw 0x0000
-    dw 0x2000
-    dq 0x0000000000000001
+    dq 0x1
 
-; Signature de boot magique (Parfaitement calibrée)
-times 510-($-$$) db 0
+times 510 - ($ - $$) db 0
 dw 0xAA55
-

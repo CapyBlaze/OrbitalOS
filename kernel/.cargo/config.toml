@@ -1,10 +1,11 @@
 [build]
 target = "x86_64-os.json"
 
+[target.x86_64-os]
+linker = "rust-lld"
 rustflags = [
-    "-C", "link-arg=-Ttext=0x100000",
-    "-C", "link-arg=-entry=_start",
-    "-C", "link-arg=--image-base=0x100000",
+    "-C", "link-arg=kernel_entry.o",
+    "-C", "link-arg=-Tkernel.ld",
 ]
 
 [unstable]
