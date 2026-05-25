@@ -1,8 +1,11 @@
 [build]
 target = "x86_64-os.json"
 
-[target.'cfg(target_os = "none")']
-runner = "bootimage runner"
+rustflags = [
+    "-C", "link-arg=-Ttext=0x100000",
+    "-C", "link-arg=-entry=_start",
+    "-C", "link-arg=--image-base=0x100000",
+]
 
 [unstable]
 json-target-spec = true

@@ -1,5 +1,4 @@
 use alloc::alloc::{GlobalAlloc, Layout};
-use bootloader::BootInfo;
 use core::ptr::null_mut;
 use fixed_size_block::FixedSizeBlockAllocator;
 use x86_64::{
@@ -9,7 +8,7 @@ use x86_64::{
     VirtAddr,
 };
 
-use crate::{allocator, memory::{self, BootInfoFrameAllocator}};
+use crate::{memory::{self, BootInfoFrameAllocator, MemoryMap}};
 
 pub mod bump;
 pub mod linked_list;
@@ -23,7 +22,6 @@ pub const HEAP_SIZE: usize = 1024 * 1024; // 1024 KiB
 #[global_allocator]
 static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 
-
 unsafe impl GlobalAlloc for Dummy {
     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
         null_mut()
@@ -36,14 +34,13 @@ unsafe impl GlobalAlloc for Dummy {
 
 
 
-pub fn init(boot_info: &'static BootInfo) {
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+pub fn init(physical_memory_offset: VirtAddr, memory_map: &'static MemoryMap) {
+    let mut mapper = unsafe { memory::init(physical_memory_offset) };
     let mut frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(&boot_info.memory_map)
+        BootInfoFrameAllocator::init(memory_map)
     };
     
-    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+    init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 }
 
 

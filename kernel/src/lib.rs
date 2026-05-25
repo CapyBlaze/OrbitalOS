@@ -18,25 +18,20 @@ pub mod shell;
 pub mod drivers {
     pub mod rtc;
 }
+pub mod framebuffer;
 
 use core::{panic::PanicInfo};
-
-#[cfg(test)]
-use bootloader::{entry_point, BootInfo};
-
 use crate::task::keyboard;
 
-#[cfg(test)]
-entry_point!(test_kernel_main);
-
 
 #[cfg(test)]
-fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
-    gdt::init();
-    interrupts::init_idt();
-    unsafe { interrupts::PICS.lock().initialize() };
-    x86_64::instructions::interrupts::enable();
-
+#[no_mangle]
+pub extern "C" fn _start(memory_map: &'static crate::memory::MemoryMap, physical_memory_offset: u64) -> ! {
+    init();
+    
+    let phys_offset = x86_64::VirtAddr::new(physical_memory_offset);
+    crate::allocator::init(phys_offset, memory_map);
+    
     test_main();
     hlt_loop()
 }
@@ -63,9 +58,7 @@ pub trait Testable {
 }
 
 impl<T> Testable for T
-where
-    T: Fn(),
-{
+where T: Fn() {
     fn run(&self) {
         serial_print!("{}...\t", core::any::type_name::<T>());
         self();

@@ -1,20 +1,34 @@
-use bootloader::bootinfo::MemoryMap;
-use bootloader::bootinfo::MemoryRegionType;
 use x86_64::{
     PhysAddr, VirtAddr, 
     structures::paging::{OffsetPageTable, PageTable, Page, PhysFrame, Mapper, Size4KiB, FrameAllocator}
 };
 
 
-pub struct EmptyFrameAllocator;
 
-unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
-    fn allocate_frame(&mut self) -> Option<PhysFrame> {
-        let frame = self.usable_frames().nth(self.next);
-        self.next += 1;
-        frame
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
+pub enum MemoryRegionType {
+    Usable = 1,
+    Reserved = 2,
+    AcpiReclaimable = 3,
+    AcpiNvs = 4,
+    BadMemory = 5,
 }
+
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct MemoryRegion {
+    pub start_addr: u64,
+    pub end_addr: u64,
+    pub region_type: MemoryRegionType,
+}
+
+#[repr(C)]
+pub struct MemoryMap {
+    pub regions: [MemoryRegion; 256],
+    pub region_count: usize,
+}
+
 
 
 
@@ -32,14 +46,26 @@ impl BootInfoFrameAllocator {
     }
 
     fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
-        let regions = self.memory_map.iter();
+        let regions = self.memory_map.regions[..self.memory_map.region_count].iter();
+        
         let usable_regions = regions
             .filter(|r| r.region_type == MemoryRegionType::Usable);
+
         let addr_ranges = usable_regions
-            .map(|r| r.range.start_addr()..r.range.end_addr());
+            .map(|r| r.start_addr..r.end_addr);
+            
         let frame_addresses = addr_ranges.flat_map(|r| r.step_by(4096));
 
         frame_addresses.map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
+    }
+}
+
+
+unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame> {
+        let frame = self.usable_frames().nth(self.next);
+        self.next += 1;
+        frame
     }
 }
 
