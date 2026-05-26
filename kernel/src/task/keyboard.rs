@@ -83,18 +83,17 @@ pub async fn print_keypresses() {
 
     while let Some(_scancode) = stream.next().await {
         // if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-            // if let Some(key) = keyboard.process_keyevent(key_event) {
-                // match key {
-                    // DecodedKey::Unicode(c) => shell.handle_char(c),
-                    // DecodedKey::RawKey(pc_keyboard::KeyCode::Return) => shell.handle_char('\n'),
-                    // DecodedKey::RawKey(pc_keyboard::KeyCode::Backspace) => shell.handle_char('\x08'),
-                    // DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowUp) => {},
-                    // DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowDown) => {},
-                    // DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowLeft) => {},
-                    // DecodedKey::RawKey(pc_keyboard::KeyCode::ArrowRight) => {},
-                    // _ => {}
-                // }
-            // }
+        //     if let Some(key) = keyboard.process_keyevent(key_event) {
+        //         match key {
+        //             DecodedKey::Unicode(c) => {
+        //                 serial_println!("{}", c);
+        //             }
+
+        //             DecodedKey::RawKey(keycode) => {
+        //                 serial_println!("{:?}", keycode);
+        //             }
+        //         }
+        //     }
         // }
     }
 }

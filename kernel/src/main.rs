@@ -22,8 +22,6 @@ pub extern "C" fn _start(
 ) -> ! {
     x86_64::instructions::interrupts::disable();
 
-    serial_println!("Boot: entered _start");
-
     // Initialize the kernel subsystems
     os::init();
     serial_println!("Boot: init");
@@ -61,23 +59,6 @@ pub extern "C" fn _start(
     
     os::frame_buffer::draw_test();
 
-
-    let manager = os::task::manager::TASK_MANAGER.lock();
-
-    serial_println!("ID NAME STATE CPU");
-    for task in manager.list_tasks() {
-        serial_println!(
-            // "{} {:?} {}",
-            // // task.id.get(),
-            // task.name,
-            // task.state,
-            // task.cpu_ticks
-
-            "{}",
-            task.name
-        );
-    }
-    
 
     // Enable interrupts and run the executor
     os::interrupts::mask_all_irqs();
