@@ -6,3 +6,4 @@
 *.log
 
 TODO.md
+!kernel/resources/bad_apple.bin

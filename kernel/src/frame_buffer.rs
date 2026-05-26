@@ -1,7 +1,7 @@
 use core::{ptr::null_mut, slice};
 use spin::Mutex;
 
-
+#[derive(Clone, Copy)]
 pub struct ColorRGB {
     r: u8,
     g: u8,
@@ -97,6 +97,53 @@ pub fn put_pixel(x: usize, y: usize, color: ColorRGB) {
             }
             if state.bytes_per_pixel > 3 {
                 state.buffer[i + 3] = 0x00;
+            }
+        }
+    }
+}
+
+pub fn draw_bitmap_1bpp(
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+    bitmap: &[u8],
+    fg: ColorRGB,
+    bg: ColorRGB,
+) {
+    let mut fb = FB_STATE.lock();
+
+    let state = match fb.as_mut() {
+        Some(s) => s,
+        None => return,
+    };
+
+    for py in 0..height {
+        for px in 0..width {
+            let bit_index = py * width + px;
+
+            let byte = bitmap[bit_index / 8];
+            let bit = (byte >> (7 - (bit_index % 8))) & 1;
+
+            let color = if bit == 1 { fg } else { bg };
+
+            let sx = x + px;
+            let sy = y + py;
+
+            let i =
+                sy * state.stride_bytes +
+                sx * state.bytes_per_pixel;
+
+            if i + 3 >= state.buffer.len() {
+                continue;
+            }
+
+            state.buffer[i + 0] = color.b;
+            state.buffer[i + 1] = color.g;
+            state.buffer[i + 2] = color.r;
+
+            if state.bytes_per_pixel == 4 {
+                state.buffer[i + 3] = 0;
             }
         }
     }

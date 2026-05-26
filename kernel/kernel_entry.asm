@@ -17,12 +17,13 @@ kernel_entry:
 
     mov rsp, 0x90000
 
-    mov byte [0xb8000], 'K'
-    mov byte [0xb8001], 0x0f
+    mov byte [abs 0xb8000], 'K'
+    mov byte [abs 0xb8001], 0x0f
 
     mov rdi, 0x7000
     mov rsi, 0x8000
-    movzx rdx, word [0x9000]
+    movzx rdx, word [abs 0x9000]
+    mov rcx, 0xC000
 
     mov rax, _start
     call rax

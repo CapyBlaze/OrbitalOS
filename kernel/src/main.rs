@@ -8,8 +8,11 @@ extern crate alloc;
 
 use core::panic::PanicInfo;
 use os::{
-    frame_buffer::ColorRGB, memory::MemoryRegion, serial_println,
-    task::{Task, executor::Executor}
+    boot_info::BootManifest,
+    frame_buffer::ColorRGB,
+    memory::MemoryRegion,
+    serial_println,
+    task::{Task, executor::Executor},
 };
 
 
@@ -19,6 +22,7 @@ pub extern "C" fn _start(
     vbe_info: *const u32,
     memory_map: *const MemoryRegion,
     memory_map_len: usize,
+    boot_manifest: *const BootManifest,
 ) -> ! {
     x86_64::instructions::interrupts::disable();
 
@@ -39,6 +43,9 @@ pub extern "C" fn _start(
     let memory_regions = unsafe {
         core::slice::from_raw_parts(memory_map, memory_map_len)
     };
+    unsafe {
+        os::boot_info::init(boot_manifest);
+    }
     os::allocator::init(memory_regions);
     serial_println!("Boot: allocator init done");
 
@@ -54,9 +61,10 @@ pub extern "C" fn _start(
     let mut executor = Executor::new();
     serial_println!("Boot: executor created");
     executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
-    serial_println!("Boot: keyboard task spawned");
-    
-    
+    executor.spawn(Task::new("badapple", os::apps::badapple::bad_apple()));
+    serial_println!("Boot: tasks spawned");
+
+
     os::frame_buffer::draw_test();
 
 
