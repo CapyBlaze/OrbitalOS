@@ -22,7 +22,7 @@ kernel_entry:
 
     mov rdi, 0x7000
     mov rsi, 0x8000
-    mov rdx, [0x9000]
+    movzx rdx, word [0x9000]
 
     mov rax, _start
     call rax

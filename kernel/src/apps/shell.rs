@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::{drivers, serial_println};
+// use crate::{drivers, serial_println};
 
 pub struct Shell {
     buffer: String,
@@ -21,7 +21,7 @@ impl Shell {
         match c {
             '\n' => {
                 // println!();
-                serial_println!("Executing command: {}", c);
+                // serial_println!("Executing command: {}", c);
 
                 self.execute();
                 self.buffer.clear();
@@ -52,10 +52,10 @@ impl Shell {
             }
 
             "tasks" => {
-                let manager = crate::task::manager::TASK_MANAGER.lock();
+                // let manager = crate::task::manager::TASK_MANAGER.lock();
 
                 // println!("ID NAME STATE CPU");
-                for _task in manager.list_tasks() {
+                // for _task in manager.list_tasks() {
                     // println!(
                     //     "{} {} {:?} {}",
                     //     task.id.get(),
@@ -63,11 +63,11 @@ impl Shell {
                     //     task.state,
                     //     task.cpu_ticks
                     // );
-                }
+                // }
             }
 
             "rtc" => {
-                let _time = drivers::rtc::read_rtc();
+                // let _time = drivers::rtc::read_rtc();
 
                 // println!(
                 //     "{:02}:{:02}:{:02}",

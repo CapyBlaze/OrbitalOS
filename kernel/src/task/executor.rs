@@ -1,6 +1,7 @@
-use crate::task::{TaskState, manager::{TASK_MANAGER, TaskInfo}};
+use crate::{serial_println, task::{TaskState, manager::{TASK_MANAGER, TaskInfo}}};
 use super::{Task, TaskId};
 use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
+use x86_64::instructions::interrupts;
 use core::task::{Waker, Context, Poll};
 use crossbeam_queue::ArrayQueue;
 
@@ -50,14 +51,17 @@ impl Executor {
     }
 
     pub fn spawn(&mut self, task: Task) {
-        TASK_MANAGER.lock().add_task(
-            TaskInfo {
-                id: task.id(),
-                name: task.name(),
-                state: task.state(),
-                cpu_ticks: task.cpu_ticks()
-            }
-        );
+        interrupts::without_interrupts(|| {
+            TASK_MANAGER.lock().add_task(
+                TaskInfo {
+                    id: task.id(),
+                    name: task.name(),
+                    state: task.state(),
+                    cpu_ticks: task.cpu_ticks()
+                }
+            );
+        });
+
 
         let task_id = task.id;
         if self.tasks.insert(task.id, task).is_some() {
@@ -96,18 +100,26 @@ impl Executor {
             task.state = TaskState::Running;
             task.tick();
 
-            TASK_MANAGER.lock().update_state(
-                task_id,
-                TaskState::Running
-            );
+            
+            interrupts::without_interrupts(|| {
+                let mut manager = TASK_MANAGER.lock();
 
-            TASK_MANAGER.lock().increment_ticks(task_id);
+                manager.update_state(
+                    task_id,
+                    TaskState::Running
+                );
+
+                manager.increment_ticks(task_id);
+            });
+
 
             match task.poll(&mut context) {
                 Poll::Ready(()) => {
                     task.state = TaskState::Finished;
 
-                    TASK_MANAGER.lock().remove_task(task_id);
+                    interrupts::without_interrupts(|| {
+                        TASK_MANAGER.lock().remove_task(task_id);
+                    });
 
                     tasks.remove(&task_id);
                     waker_cache.remove(&task_id);
@@ -115,17 +127,23 @@ impl Executor {
 
                 Poll::Pending => {
                     task.state = TaskState::Ready;
-
-                    TASK_MANAGER.lock().update_state(
-                        task_id,
-                        TaskState::Ready
-                    );
+                    
+                    interrupts::without_interrupts(|| {
+                        TASK_MANAGER.lock().update_state(
+                            task_id,
+                            TaskState::Ready
+                        );
+                    });
                 }
             }
         }
     }
 
     pub fn run(&mut self) -> ! {
+        serial_println!("Executor: starting main loop");
+    
+        x86_64::instructions::interrupts::enable();
+
         loop {
             self.run_ready_tasks();
             self.sleep_if_idle();

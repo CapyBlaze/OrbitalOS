@@ -30,10 +30,15 @@ start:
 	; 0x4000 sets Bit 14. Linear Framebuffer (LFB) flag.
 	int 0x10 ; call bios video services
 
-	; Loading the kernel
-	mov si, kernel_dap
-	mov ah, 0x42
+	; Loading the kernel in two reads to stay within BIOS sector-count limits
 	mov dl, [0x500]
+
+	mov si, kernel_dap_1
+	mov ah, 0x42
+	int 0x13
+
+	mov si, kernel_dap_2
+	mov ah, 0x42
 	int 0x13
 
 	; =========================
@@ -62,14 +67,22 @@ e820_done:
 	mov [memory_map_entries], bp
 	jmp setup_gdt
 
-; Loading the Kernal
-kernel_dap:
+	; Loading the Kernal
+	kernel_dap_1:
 	db 0x10
 	db 0x00
-	dw 128
+	dw 127
 	dw 0x0000 ; offset
 	dw 0x1000 ; destination
 	dq 5	; Kernel lives at sector 5
+
+	kernel_dap_2:
+		db 0x10
+		db 0x00
+		dw 8
+		dw 0x0000 ; offset
+		dw 0x1FE0 ; destination
+		dq 132	; Kernel continues at sector 132
 
 	; 0x1000 * 16 + 0x0000 = 0x10000
 	; loads the kernel to 0x10000 in this real mode
@@ -190,10 +203,10 @@ protected_mode:
 	mov esp, 0x90000 ; new stack is set up in a safe location
 
 	; copy kernel from 0x10000 to 0x100000
-	; ecx must match DAP sector count: 128 sectors * 512 / 4 = 16384 dwords
+	; ecx must match the total kernel size: 135 sectors * 512 / 4 = 17280 dwords
 	mov esi, 0x10000	; source -> where we loaded the kernel
 	mov edi, 0x100000	; destination -> where kernel should live
-	mov ecx, 16384		; 16384 * 4 bytes = 64 KB.
+	mov ecx, 17280		; 17280 * 4 bytes = 69120 bytes.
 	rep movsd
 
 	; rep movsd copy 4 bytes from [ESI] to [EDI], advance both by 4, decrements ECX
@@ -325,7 +338,7 @@ long_mode:
 
 	mov rdi, 0x7000
 	mov rsi, memory_map_buffer
-	mov rdx, [memory_map_entries]
+	movzx rdx, word [memory_map_entries]
 
 	mov rax, 0x100000
 	jmp rax

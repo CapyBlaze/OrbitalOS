@@ -40,6 +40,7 @@ lazy_static! {
         idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
         idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(keyboard_interrupt_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
+        idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
         
         idt
     };
@@ -47,6 +48,22 @@ lazy_static! {
 
 pub fn init_idt() {
     IDT.load();
+}
+
+pub fn mask_all_irqs() {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        unsafe {
+            PICS.lock().write_masks(0xff, 0xff);
+        }
+    });
+}
+
+pub fn unmask_timer_and_keyboard() {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        unsafe {
+            PICS.lock().write_masks(0xfc, 0xff);
+        }
+    });
 }
 
 
@@ -92,6 +109,10 @@ extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, e
     serial_println!("Error Code: {:?}", error_code);
     serial_println!("{:#?}", stack_frame);
     hlt_loop();
+}
+
+extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: InterruptStackFrame,) {
+    panic!("EXCEPTION: INVALID OPCODE\n{:#?}", stack_frame);
 }
 
 

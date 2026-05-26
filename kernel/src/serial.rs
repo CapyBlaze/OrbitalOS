@@ -3,9 +3,8 @@ use spin::Mutex;
 use lazy_static::lazy_static;
 
 lazy_static! {
-    pub static ref SERIAL1: Mutex<Uart16550Tty<PioBackend>> = Mutex::new(unsafe {
-        Uart16550Tty::new_port(0x3F8, Config::default())
-            .expect("failed to initialize UART")
+    pub static ref SERIAL1: Mutex<Option<Uart16550Tty<PioBackend>>> = Mutex::new(unsafe {
+        Uart16550Tty::new_port(0x3F8, Config::default()).ok()
     });
 }
 
@@ -16,7 +15,9 @@ pub fn _print(args: ::core::fmt::Arguments) {
     use x86_64::instructions::interrupts;
 
     interrupts::without_interrupts(|| {
-        SERIAL1.lock().write_fmt(args).expect("Printing to serial failed");
+        if let Some(ref mut serial) = *SERIAL1.lock() {
+            let _ = serial.write_fmt(args);
+        }
     });
 }
 

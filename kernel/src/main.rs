@@ -9,7 +9,7 @@ extern crate alloc;
 use core::panic::PanicInfo;
 use os::{
     frame_buffer::ColorRGB, memory::MemoryRegion, serial_println,
-    // task::{Task, executor::Executor}
+    task::{Task, executor::Executor}
 };
 
 
@@ -20,9 +20,15 @@ pub extern "C" fn _start(
     memory_map: *const MemoryRegion,
     memory_map_len: usize,
 ) -> ! {
+    x86_64::instructions::interrupts::disable();
+
+    serial_println!("Boot: entered _start");
+
+    // Initialize the kernel subsystems
     os::init();
-    serial_println!("Boot: os::init");
+    serial_println!("Boot: init");
     
+
     // Initialize the frame buffer
     unsafe {
         os::frame_buffer::init(vbe_info as *const u8);
@@ -40,27 +46,43 @@ pub extern "C" fn _start(
 
 
     // Initialize the keyboard task
-    os::task::keyboard::init();
-    serial_println!("Boot: keyboard init done");
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        os::task::keyboard::init();
+        serial_println!("Boot: keyboard init done");
+    });
 
 
-    // let mut executor = Executor::new();
-    // serial_println!("Boot: executor created");
-    // executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
-    // serial_println!("Boot: keyboard task spawned");
-
-
+    // Initialize the executor and spawn tasks
+    let mut executor = Executor::new();
+    serial_println!("Boot: executor created");
+    executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
+    serial_println!("Boot: keyboard task spawned");
+    
+    
     os::frame_buffer::draw_test();
 
-    loop {
-        unsafe {
-            core::arch::asm!("hlt");
-        }
-    }
 
-    // x86_64::instructions::interrupts::enable();
-    // serial_println!("Boot: interrupts enabled, entering executor");
-    // executor.run();
+    let manager = os::task::manager::TASK_MANAGER.lock();
+
+    serial_println!("ID NAME STATE CPU");
+    for task in manager.list_tasks() {
+        serial_println!(
+            // "{} {:?} {}",
+            // // task.id.get(),
+            // task.name,
+            // task.state,
+            // task.cpu_ticks
+
+            "{}",
+            task.name
+        );
+    }
+    
+
+    // Enable interrupts and run the executor
+    os::interrupts::mask_all_irqs();
+    os::interrupts::unmask_timer_and_keyboard();
+    executor.run();
 }
 
 
