@@ -1,6 +1,6 @@
-use alloc::vec;
+use alloc::{format, vec};
 
-use crate::{boot_info, drivers::ata, frame_buffer::{self, FRAMEBUFFER}, serial_println, task::sleep};
+use crate::{boot_info, drivers::ata, frame_buffer::{self, FRAMEBUFFER, FontName, ColorRGB}, serial_println, task::sleep};
 
 pub async fn bad_apple() {
     let Some(entry) = boot_info::find_file("bad_apple.bin") else {
@@ -28,7 +28,6 @@ pub async fn bad_apple() {
         let frame_lba = entry.start_sector + 1 + (index as u32 * frame_disk_sectors as u32);
         ata::read_sectors(frame_lba, frame_disk_sectors as u32, frame_disk_buffer.as_mut_slice());
 
-        serial_println!("badapple: frame {}/{}", index + 1, frame_count);
 
         let fb = FRAMEBUFFER.lock();
         let width_screen = fb.width;
@@ -40,9 +39,19 @@ pub async fn bad_apple() {
             width,
             height,
             frame_disk_buffer.as_mut_slice(),
-            frame_buffer::ColorRGB::new(0xFF, 0xFF, 0xFF),
-            frame_buffer::ColorRGB::new(0x00, 0x00, 0x00),
+            ColorRGB::new(0xFF, 0xFF, 0xFF),
+            ColorRGB::new(0x00, 0x00, 0x00),
         );
+
+        frame_buffer::text_draw(
+            width_screen / 2 - width,
+            height_screen / 2 - 50 + height + 8,
+            format!("{}/{}", index + 1, frame_count).as_str(), 
+            FontName::SpleenSmall, 
+            ColorRGB::new(0xFF, 0xFF, 0xFF), 
+            ColorRGB::new(0x00, 0x00, 0x00)
+        );
+
         sleep::sleep(1).await;
     }
 }

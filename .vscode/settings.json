@@ -3,5 +3,6 @@
         "./kernel/Cargo.toml"
         // "./tools/badapple_converter/Cargo.toml"
         // "./tools/fonts_builder/Cargo.toml"
+        // "./tools/image_builder/Cargo.toml"
     ]
 }

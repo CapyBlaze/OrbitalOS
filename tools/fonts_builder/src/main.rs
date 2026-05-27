@@ -8,14 +8,8 @@ struct Font {
     family_name: String,
     number_chars: u32,
     font_bounding_box: (i32, i32, i32, i32),
-    chars: Vec<Char>
+    chars: Vec<Vec<u8>>
 }
-
-struct Char {
-    encoding: u32,
-    bitmap: Vec<u8>
-}
-
 
 fn main() {
     let mut files: Vec<_> = fs::read_dir(FONTS_DIR)
@@ -73,20 +67,11 @@ fn main() {
             }
 
             if trimmed.starts_with("STARTCHAR") {
-                let mut char = Char {
-                    encoding: 0,
-                    bitmap: Vec::new()
-                };
+                let mut c = Vec::new();
 
                 for char_line_result in line_iterator.by_ref() {
                     let char_line = char_line_result.unwrap();
                     let char_trimmed = char_line.trim();
-
-                    if char_trimmed.starts_with("ENCODING") {
-                        let encoding = char_trimmed.split_whitespace().nth(1).unwrap_or("0").parse().unwrap_or(0);
-                        char.encoding = encoding;
-                        continue;
-                    }
 
                     if char_trimmed.starts_with("BITMAP") {
                         for bitmap_line_result in line_iterator.by_ref() {
@@ -98,14 +83,14 @@ fn main() {
                             }
 
                             if let Ok(byte) = u8::from_str_radix(bitmap_trimmed, 16) {
-                                char.bitmap.push(byte);
+                                c.push(byte);
                             }
                         }
                         break;
                     }
                 }
 
-                font.chars.push(char);
+                font.chars.push(c);
                 continue;
             }
         }
@@ -133,18 +118,16 @@ fn main() {
         output_file.write_all(&font.font_bounding_box.3.to_le_bytes()).unwrap();
 
         for ch in &font.chars {
-            output_file.write_all(&ch.encoding.to_le_bytes()).unwrap();
-            
-            if ch.bitmap.len() == font.font_bounding_box.1 as usize {
-                output_file.write_all(&ch.bitmap).unwrap();
+            if ch.len() == font.font_bounding_box.1 as usize {
+                output_file.write_all(&ch).unwrap();
 
-            } else if ch.bitmap.len() < font.font_bounding_box.1 as usize {
-                let mut bitmap_padded = ch.bitmap.clone();
+            } else if ch.len() < font.font_bounding_box.1 as usize {
+                let mut bitmap_padded = ch.clone();
                 bitmap_padded.resize(font.font_bounding_box.1 as usize, 0x00);
                 output_file.write_all(&bitmap_padded).unwrap();
 
             } else {
-                output_file.write_all(&ch.bitmap[..font.font_bounding_box.1 as usize]).unwrap();
+                output_file.write_all(&ch[..font.font_bounding_box.1 as usize]).unwrap();
             }
         }
 

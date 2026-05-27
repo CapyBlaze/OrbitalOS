@@ -1,5 +1,8 @@
-use core::{ptr::null_mut, slice};
+use core::{ptr::null_mut, slice, str};
+use alloc::{vec::Vec};
 use spin::Mutex;
+
+use crate::{boot_info, serial_println};
 
 #[derive(Clone, Copy)]
 pub struct ColorRGB {
@@ -48,6 +51,57 @@ pub static FRAMEBUFFER: Mutex<FrameBuffer> = Mutex::new(FrameBuffer {
 });
 
 
+pub static FONT_MANAGER: Mutex<Vec<KernelFont>> = Mutex::new(Vec::new());
+pub struct KernelFont {
+    pub name: FontName,
+    pub nb_chars: usize,
+    pub font_bounding_box: (usize, usize, i32, i32),
+    pub char_size: usize,
+    pub data: Vec<u8>,
+}
+
+impl KernelFont {
+    pub fn new(name: FontName, bytes: Vec<u8>) -> Self {
+        let nb_chars = i32::from_le_bytes(bytes[32..36].try_into().unwrap()) as usize;
+        
+        let width = i32::from_le_bytes(bytes[36..40].try_into().unwrap()) as usize;
+        let height = i32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize;
+        let offset_x = i32::from_le_bytes(bytes[44..48].try_into().unwrap());
+        let offset_y = i32::from_le_bytes(bytes[48..52].try_into().unwrap());
+
+        let font_bounding_box = (width, height, offset_x, offset_y);
+
+        let bytes_per_row = (width + 7) / 8;
+        let char_size = bytes_per_row * height;
+
+
+        Self {
+            name,
+            nb_chars,
+            font_bounding_box,
+            char_size,
+            data: bytes,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FontName {
+    SpleenSmall,
+    SpleenLarge,
+    Unknown,
+}
+
+impl FontName {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FontName::SpleenSmall => "Spleen Small",
+            FontName::SpleenLarge => "Spleen Large",
+            FontName::Unknown => "Unknown",
+        }
+    }
+}
+
 
 pub unsafe fn init(vbe_info: *const u8) {
     let pitch  = *(vbe_info.add(16) as *const u16) as usize;
@@ -79,6 +133,16 @@ pub unsafe fn init(vbe_info: *const u8) {
         height: fb.height,
         bytes_per_pixel,
     });
+
+
+    
+    if let Some(bytes) = boot_info::load_file("spleen-8x16.bin") {
+        FONT_MANAGER.lock().push(KernelFont::new(FontName::SpleenSmall, bytes));
+    }
+    
+    if let Some(bytes) = boot_info::load_file("spleen-16x32.bin") {
+        FONT_MANAGER.lock().push(KernelFont::new(FontName::SpleenLarge, bytes));
+    }
 }
 
 pub fn put_pixel(x: usize, y: usize, color: ColorRGB) {
@@ -100,7 +164,7 @@ pub fn put_pixel(x: usize, y: usize, color: ColorRGB) {
     }
 }
 
-pub fn draw_bitmap_1bpp(
+pub fn draw_bitmap_1bpp (
     x: usize,
     y: usize,
     width: usize,
@@ -115,7 +179,7 @@ pub fn draw_bitmap_1bpp(
         Some(s) => s,
         None => return,
     };
-
+    
     for py in 0..height {
         for px in 0..width {
             let bit_index = py * width + px;
@@ -175,5 +239,38 @@ pub fn clear(color: ColorRGB) {
                 }
             }
         }
+    }
+}
+
+pub fn text_draw(x: usize, y: usize, text: &str, font_name: FontName, fg: ColorRGB, bg: ColorRGB) {
+    let manager = FONT_MANAGER.lock();
+    serial_println!("Available fonts:");
+    let Some(font) = manager.iter().find(|f| f.name == font_name) else {
+        return;
+    };
+    serial_println!("Using font: {}", font.name.as_str());
+
+    let mut current_x = x;
+
+    for c in text.chars() {
+        let ascii = c as usize;
+        if ascii < 32 { continue; }
+
+        let total_block_size = 4 + font.char_size;
+        let char_index = 52 + (ascii - 32) * total_block_size;
+        let bitmap_start = char_index + 4;
+        let glyph_bytes = &font.data[bitmap_start..bitmap_start + font.char_size];
+
+        draw_bitmap_1bpp(
+            current_x,
+            y,
+            font.font_bounding_box.0 as usize,
+            font.font_bounding_box.1 as usize,
+            glyph_bytes,
+            fg,
+            bg,
+        );
+
+        current_x += font.font_bounding_box.0 as usize;
     }
 }
