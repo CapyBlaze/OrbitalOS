@@ -13,17 +13,20 @@ pub mod gdt;
 pub mod memory;
 pub mod allocator;
 pub mod task;
+pub mod boot_info;
+pub mod frame_buffer;
 pub mod apps {
     pub mod badapple;
     pub mod shell;
     pub mod hud;
 }
-pub mod boot_info;
 pub mod drivers {
     pub mod rtc;
     pub mod ata;
 }
-pub mod frame_buffer;
+pub mod generated {
+    pub mod layout;
+}
 
 use core::{panic::PanicInfo};
 use crate::task::keyboard;

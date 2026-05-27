@@ -1,9 +1,8 @@
 use alloc::{vec, vec::Vec};
 use core::mem::size_of;
 
-use crate::drivers::ata;
+use crate::{drivers::ata, generated::layout::MANIFEST_SECTOR};
 
-const MANIFEST_SECTOR: u32 = 4;
 
 #[repr(C)]
 pub struct BootManifest {

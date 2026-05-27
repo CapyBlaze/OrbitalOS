@@ -16,7 +16,7 @@ pub mod fixed_size_block;
 pub struct Dummy;
 
 pub const HEAP_START: *mut u8 = 0x0020_0000 as *mut u8; // 2 MiB
-pub const HEAP_SIZE: usize = 1024 * 1024; // 1024 KiB
+pub const HEAP_SIZE: usize = 32 * 1024 * 1024; // 32 MiB
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();

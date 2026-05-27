@@ -1,4 +1,4 @@
-.PHONY: all clean run tools FORCE
+.PHONY: all clean run tools run-gui FORCE
 
 all: os.img
 
@@ -24,6 +24,9 @@ kernel.bin: FORCE
 	rust-objcopy -O binary kernel/target/x86_64-os/release/os kernel.bin
 
 run: os.img
+	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std
+
+run-gui: FORCE
 	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std
 
 tools: FORCE

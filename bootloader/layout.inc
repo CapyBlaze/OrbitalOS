@@ -1,0 +1,2 @@
+%define MANIFEST_SECTOR 2
+%define KERNEL_START_SECTOR 3

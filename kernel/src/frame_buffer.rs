@@ -2,7 +2,7 @@ use core::{ptr::null_mut, slice, str};
 use alloc::{vec::Vec};
 use spin::Mutex;
 
-use crate::{boot_info, serial_println};
+use crate::boot_info;
 
 #[derive(Clone, Copy)]
 pub struct ColorRGB {
@@ -133,15 +133,19 @@ pub unsafe fn init(vbe_info: *const u8) {
         height: fb.height,
         bytes_per_pixel,
     });
+}
 
+pub fn init_fonts() {
+    let mut manager = FONT_MANAGER.lock();
 
-    
+    manager.clear();
+
     if let Some(bytes) = boot_info::load_file("spleen-8x16.bin") {
-        FONT_MANAGER.lock().push(KernelFont::new(FontName::SpleenSmall, bytes));
+        manager.push(KernelFont::new(FontName::SpleenSmall, bytes));
     }
-    
+
     if let Some(bytes) = boot_info::load_file("spleen-16x32.bin") {
-        FONT_MANAGER.lock().push(KernelFont::new(FontName::SpleenLarge, bytes));
+        manager.push(KernelFont::new(FontName::SpleenLarge, bytes));
     }
 }
 
@@ -244,11 +248,9 @@ pub fn clear(color: ColorRGB) {
 
 pub fn text_draw(x: usize, y: usize, text: &str, font_name: FontName, fg: ColorRGB, bg: ColorRGB) {
     let manager = FONT_MANAGER.lock();
-    serial_println!("Available fonts:");
     let Some(font) = manager.iter().find(|f| f.name == font_name) else {
         return;
     };
-    serial_println!("Using font: {}", font.name.as_str());
 
     let mut current_x = x;
 

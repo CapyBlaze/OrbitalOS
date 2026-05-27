@@ -2,8 +2,7 @@
 [ORG 0x7E00]
 
 %include "bootloader/kernel_sectors.inc"
-
-%define KERNEL_START_SECTOR 5
+%include "bootloader/layout.inc"
 
 start:
 	; Enable A20 to use 0x100000 for loading ther Kernel

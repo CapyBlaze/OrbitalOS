@@ -31,15 +31,6 @@ pub extern "C" fn _start(
     serial_println!("Boot: init");
     
 
-    // Initialize the frame buffer
-    unsafe {
-        os::frame_buffer::init(vbe_info as *const u8);
-    }
-    os::frame_buffer::clear(ColorRGB::new(0x00, 0x00, 0x00));
-    os::apps::hud::init();
-    serial_println!("Boot: frame buffer init done");
-
-
     // Initialize the heap allocator
     let memory_regions = unsafe {
         core::slice::from_raw_parts(memory_map, memory_map_len)
@@ -49,6 +40,19 @@ pub extern "C" fn _start(
     }
     os::allocator::init(memory_regions);
     serial_println!("Boot: allocator init done");
+
+    
+    // Initialize the frame buffer
+    unsafe {
+        os::frame_buffer::init(vbe_info as *const u8);
+    }
+    os::frame_buffer::clear(ColorRGB::new(0x00, 0x00, 0x00));
+    serial_println!("Boot: frame buffer init done");
+    os::frame_buffer::init_fonts();
+
+
+    // Initialize the HUD OS
+    os::apps::hud::init();
 
 
     // Initialize the keyboard task
