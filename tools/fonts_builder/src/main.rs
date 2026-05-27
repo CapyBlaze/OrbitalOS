@@ -82,8 +82,13 @@ fn main() {
                                 break;
                             }
 
-                            if let Ok(byte) = u8::from_str_radix(bitmap_trimmed, 16) {
-                                c.push(byte);
+                            let hex = bitmap_trimmed;
+                            for i in (0..hex.len()).step_by(2) {
+                                let part = &hex[i..i + 2];
+
+                                if let Ok(byte) = u8::from_str_radix(part, 16) {
+                                    c.push(byte);
+                                }
                             }
                         }
                         break;
@@ -117,18 +122,14 @@ fn main() {
         output_file.write_all(&font.font_bounding_box.2.to_le_bytes()).unwrap();
         output_file.write_all(&font.font_bounding_box.3.to_le_bytes()).unwrap();
 
+        let bytes_per_row = ((font.font_bounding_box.0 + 7) / 8) as usize;
+        let expected_size = bytes_per_row * font.font_bounding_box.1 as usize;
+
         for ch in &font.chars {
-            if ch.len() == font.font_bounding_box.1 as usize {
-                output_file.write_all(&ch).unwrap();
+            let mut glyph = ch.clone();
 
-            } else if ch.len() < font.font_bounding_box.1 as usize {
-                let mut bitmap_padded = ch.clone();
-                bitmap_padded.resize(font.font_bounding_box.1 as usize, 0x00);
-                output_file.write_all(&bitmap_padded).unwrap();
-
-            } else {
-                output_file.write_all(&ch[..font.font_bounding_box.1 as usize]).unwrap();
-            }
+            glyph.resize(expected_size, 0x00);
+            output_file.write_all(&glyph).unwrap();
         }
 
         output_file.flush().unwrap();

@@ -66,7 +66,8 @@ pub extern "C" fn _start(
     let mut executor = Executor::new();
     serial_println!("Boot: executor created");
     executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
-    executor.spawn(Task::new("badapple", os::apps::badapple::bad_apple()));
+    // executor.spawn(Task::new("badapple", os::apps::badapple::bad_apple()));
+    executor.spawn(Task::new("hudtime", os::apps::hud::time_update()));
     serial_println!("Boot: tasks spawned");
 
 

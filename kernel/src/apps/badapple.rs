@@ -1,6 +1,6 @@
 use alloc::{format, vec};
 
-use crate::{boot_info, drivers::ata, frame_buffer::{self, FRAMEBUFFER, FontName, ColorRGB}, serial_println, task::sleep};
+use crate::{apps::hud, boot_info, drivers::ata, frame_buffer::{self, ColorRGB, FRAMEBUFFER, FontName}, serial_println, task::sleep};
 
 pub async fn bad_apple() {
     let Some(entry) = boot_info::find_file("bad_apple.bin") else {
@@ -24,14 +24,25 @@ pub async fn bad_apple() {
     let frame_disk_sectors = (frame_size + 511) / 512;
     let mut frame_disk_buffer = vec![0u8; frame_disk_sectors * 512];
 
+
+    let (width_screen, height_screen) = {
+        let fb = FRAMEBUFFER.lock();
+        (fb.width, fb.height)
+    };
+
+    hud::draw_window_app(
+        (width_screen - width) / 2,
+        (height_screen - height) / 2 - 50,
+        width,
+        height + 18,
+        "Bad Apple!!"
+    );
+
+
     for index in 0..frame_count {
         let frame_lba = entry.start_sector + 1 + (index as u32 * frame_disk_sectors as u32);
         ata::read_sectors(frame_lba, frame_disk_sectors as u32, frame_disk_buffer.as_mut_slice());
 
-
-        let fb = FRAMEBUFFER.lock();
-        let width_screen = fb.width;
-        let height_screen = fb.height;
 
         frame_buffer::draw_bitmap_1bpp(
             (width_screen - width) / 2,
@@ -44,12 +55,12 @@ pub async fn bad_apple() {
         );
 
         frame_buffer::text_draw(
-            width_screen / 2 - width,
-            height_screen / 2 - 50 + height + 8,
-            format!("{}/{}", index + 1, frame_count).as_str(), 
+            (width_screen - width) / 2,
+            (height_screen + height) / 2 - 50 + 2,
+            format!("{:04}/{:04}", index + 1, frame_count).as_str(), 
             FontName::SpleenSmall, 
-            ColorRGB::new(0xFF, 0xFF, 0xFF), 
-            ColorRGB::new(0x00, 0x00, 0x00)
+            ColorRGB::new(0x00, 0x00, 0x00), 
+            ColorRGB::new(0xd9, 0xd9, 0xd9)
         );
 
         sleep::sleep(1).await;

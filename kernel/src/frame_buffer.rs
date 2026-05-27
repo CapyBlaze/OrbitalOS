@@ -1,6 +1,7 @@
 use core::{ptr::null_mut, slice, str};
 use alloc::{vec::Vec};
 use spin::Mutex;
+use core::convert::TryInto;
 
 use crate::boot_info;
 
@@ -62,12 +63,41 @@ pub struct KernelFont {
 
 impl KernelFont {
     pub fn new(name: FontName, bytes: Vec<u8>) -> Self {
-        let nb_chars = i32::from_le_bytes(bytes[32..36].try_into().unwrap()) as usize;
-        
-        let width = i32::from_le_bytes(bytes[36..40].try_into().unwrap()) as usize;
-        let height = i32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize;
-        let offset_x = i32::from_le_bytes(bytes[44..48].try_into().unwrap());
-        let offset_y = i32::from_le_bytes(bytes[48..52].try_into().unwrap());
+        let nb_chars = i32::from_le_bytes(bytes
+            .get(32..36)
+            .unwrap()
+            .try_into()
+            .unwrap()
+        ) as usize;
+
+        let width = i32::from_le_bytes(bytes
+            .get(36..40)
+            .unwrap()
+            .try_into()
+            .unwrap()
+        ) as usize;
+
+        let height = i32::from_le_bytes(bytes
+            .get(40..44)
+            .unwrap()
+            .try_into()
+            .unwrap()
+        ) as usize;
+
+        let offset_x = i32::from_le_bytes(bytes
+            .get(44..48)
+            .unwrap()
+            .try_into()
+            .unwrap()
+        );
+
+        let offset_y = i32::from_le_bytes(bytes
+            .get(48..52)
+            .unwrap()
+            .try_into()
+            .unwrap()
+        );
+
 
         let font_bounding_box = (width, height, offset_x, offset_y);
 
@@ -87,16 +117,20 @@ impl KernelFont {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FontName {
+    SpleenSmallSmall,
     SpleenSmall,
     SpleenLarge,
+    SpleenBig,
     Unknown,
 }
 
 impl FontName {
     pub fn as_str(&self) -> &'static str {
         match self {
+            FontName::SpleenSmallSmall => "Spleen Small Small",
             FontName::SpleenSmall => "Spleen Small",
             FontName::SpleenLarge => "Spleen Large",
+            FontName::SpleenBig => "Spleen Big",
             FontName::Unknown => "Unknown",
         }
     }
@@ -140,12 +174,21 @@ pub fn init_fonts() {
 
     manager.clear();
 
+    if let Some(bytes) = boot_info::load_file("spleen-6x12.bin") {
+        manager.push(KernelFont::new(FontName::SpleenSmallSmall, bytes));
+    }
+    
+
     if let Some(bytes) = boot_info::load_file("spleen-8x16.bin") {
         manager.push(KernelFont::new(FontName::SpleenSmall, bytes));
     }
 
-    if let Some(bytes) = boot_info::load_file("spleen-16x32.bin") {
+    if let Some(bytes) = boot_info::load_file("spleen-12x24.bin") {
         manager.push(KernelFont::new(FontName::SpleenLarge, bytes));
+    }
+
+    if let Some(bytes) = boot_info::load_file("spleen-16x32.bin") {
+        manager.push(KernelFont::new(FontName::SpleenBig, bytes));
     }
 }
 
@@ -183,13 +226,15 @@ pub fn draw_bitmap_1bpp (
         Some(s) => s,
         None => return,
     };
+
+    let bytes_per_row = (width + 7) / 8;
     
     for py in 0..height {
         for px in 0..width {
-            let bit_index = py * width + px;
+            let byte_index = py * bytes_per_row + (px / 8);
 
-            let byte = bitmap[bit_index / 8];
-            let bit = (byte >> (7 - (bit_index % 8))) & 1;
+            let byte = bitmap[byte_index];
+            let bit = (byte >> (7 - (px % 8))) & 1;
 
             let color = if bit == 1 { fg } else { bg };
 
@@ -258,10 +303,12 @@ pub fn text_draw(x: usize, y: usize, text: &str, font_name: FontName, fg: ColorR
         let ascii = c as usize;
         if ascii < 32 { continue; }
 
-        let total_block_size = 4 + font.char_size;
-        let char_index = 52 + (ascii - 32) * total_block_size;
-        let bitmap_start = char_index + 4;
-        let glyph_bytes = &font.data[bitmap_start..bitmap_start + font.char_size];
+        let bitmap_start = 52 + (ascii - 32) * font.char_size;
+
+        let glyph_end = bitmap_start + font.char_size;
+        let Some(glyph_bytes) = font.data.get(bitmap_start..glyph_end) else {
+            continue;
+        };
 
         draw_bitmap_1bpp(
             current_x,
