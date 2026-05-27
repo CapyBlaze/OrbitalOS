@@ -1,4 +1,4 @@
-.PHONY: all clean run tool FORCE
+.PHONY: all clean run tools FORCE
 
 all: os.img
 
@@ -26,8 +26,9 @@ kernel.bin: FORCE
 run: os.img
 	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std
 
-tool: FORCE
+tools: FORCE
 	cd tools/badapple_converter && cargo run --release
+	cd tools/fonts_builder && cargo run --release
 	@echo "Bad Apple binary generated at $(PAYLOAD_BIN)"
 
 clean:

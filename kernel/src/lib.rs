@@ -16,6 +16,7 @@ pub mod task;
 pub mod apps {
     pub mod badapple;
     pub mod shell;
+    pub mod hud;
 }
 pub mod boot_info;
 pub mod drivers {

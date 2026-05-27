@@ -3,7 +3,7 @@ use std::{fs::{self, File}, io::{BufWriter, Write}};
 use image::ImageReader;
 
 const FRAMES_DIR: &str = "./resources/frames";
-const OUTPUT_FILE: &str = "../../kernel/resources/bad_apple.bin";
+const OUTPUT_DIR: &str = "../../kernel/resources";
 
 fn main() {
     let mut files: Vec<_> = fs::read_dir(FRAMES_DIR)
@@ -29,7 +29,10 @@ fn main() {
     println!("{}x{}", width, height);
     println!("{} frames", files.len());
 
-    let output = File::create(OUTPUT_FILE).unwrap();
+
+    fs::create_dir_all(OUTPUT_DIR).expect("Failed to create output directory");
+
+    let output = File::create(format!("{}/bad_apple.bin", OUTPUT_DIR)).unwrap();
     let mut writer = BufWriter::new(output);
 
     let header_len = 12usize;

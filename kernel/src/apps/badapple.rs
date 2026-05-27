@@ -1,6 +1,6 @@
 use alloc::vec;
 
-use crate::{boot_info, drivers::ata, frame_buffer, serial_println, task::sleep};
+use crate::{boot_info, drivers::ata, frame_buffer::{self, FRAMEBUFFER}, serial_println, task::sleep};
 
 pub async fn bad_apple() {
     let Some(entry) = boot_info::find_file("bad_apple.bin") else {
@@ -30,9 +30,13 @@ pub async fn bad_apple() {
 
         serial_println!("badapple: frame {}/{}", index + 1, frame_count);
 
+        let fb = FRAMEBUFFER.lock();
+        let width_screen = fb.width;
+        let height_screen = fb.height;
+
         frame_buffer::draw_bitmap_1bpp(
-            0,
-            0,
+            (width_screen - width) / 2,
+            (height_screen - height) / 2 - 50,
             width,
             height,
             frame_disk_buffer.as_mut_slice(),

@@ -39,8 +39,6 @@ struct FrameBufferState {
 }
 
 static FB_STATE: Mutex<Option<FrameBufferState>> = Mutex::new(None);
-
-
 pub static FRAMEBUFFER: Mutex<FrameBuffer> = Mutex::new(FrameBuffer {
     buffer_ptr: null_mut(),
     buffer_size: 0,
@@ -149,6 +147,14 @@ pub fn draw_bitmap_1bpp(
     }
 }
 
+pub fn draw_rect(x: usize, y: usize, width: usize, height: usize, color: ColorRGB) {
+    for py in 0..height {
+        for px in 0..width {
+            put_pixel(x + px, y + py, color);
+        }
+    }
+}
+
 pub fn clear(color: ColorRGB) {
     if let Some(ref mut state) = *FB_STATE.lock() {
         for y in 0..state.height {
@@ -168,14 +174,6 @@ pub fn clear(color: ColorRGB) {
                     state.buffer[i + 3] = 0x00;
                 }
             }
-        }
-    }
-}
-
-pub fn draw_test() {
-    for x in 0..200 {
-        for y in 0..200 {
-            put_pixel(x, y, ColorRGB::new(0xFF, 0x00, 0x00)); // rouge
         }
     }
 }

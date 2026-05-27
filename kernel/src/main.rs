@@ -35,7 +35,8 @@ pub extern "C" fn _start(
     unsafe {
         os::frame_buffer::init(vbe_info as *const u8);
     }
-    os::frame_buffer::clear(ColorRGB::new(0x00, 0x00, 0x99));
+    os::frame_buffer::clear(ColorRGB::new(0x00, 0x00, 0x00));
+    os::apps::hud::init();
     serial_println!("Boot: frame buffer init done");
 
 
@@ -63,9 +64,6 @@ pub extern "C" fn _start(
     executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
     executor.spawn(Task::new("badapple", os::apps::badapple::bad_apple()));
     serial_println!("Boot: tasks spawned");
-
-
-    os::frame_buffer::draw_test();
 
 
     // Enable interrupts and run the executor
