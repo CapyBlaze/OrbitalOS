@@ -8,11 +8,7 @@ extern crate alloc;
 
 use core::panic::PanicInfo;
 use os::{
-    boot_info::BootManifest,
-    frame_buffer::ColorRGB,
-    memory::MemoryRegion,
-    serial_println,
-    task::{Task, executor::Executor},
+    apps::hud::HUD_BACKGROUND, boot_info::BootManifest, memory::MemoryRegion, serial_println, task::{Task, executor::Executor}
 };
 
 
@@ -55,7 +51,7 @@ pub extern "C" fn _start(
 
     let bg_id = os::frame_buffer::LAYER_MANAGER.lock().create_layer(width_screen, height_screen, 0, 0, 0);
     if let Some(layer) = os::frame_buffer::LAYER_MANAGER.lock().get_layer_mut(bg_id) {
-        layer.clear(ColorRGB::new(0x00, 0x00, 0x00)); 
+        layer.clear(HUD_BACKGROUND); 
     }
     serial_println!("Boot: frame buffer init done");
     

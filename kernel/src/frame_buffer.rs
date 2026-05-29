@@ -240,10 +240,24 @@ impl LayerManager {
     }
 
     pub fn compose(&self, backbuffer: &mut [u8], screen_width: usize, screen_height: usize, stride_bytes: usize, bytes_per_pixel: usize) {
-        let mut sorted: Vec<&Layer> = self.layers.iter().collect();
-        sorted.sort_by_key(|l| l.z_index);
+        let mut sorted_refs = [None; 64];
+        let count = self.layers.len().min(64);
+        
+        for i in 0..count {
+            sorted_refs[i] = Some(&self.layers.as_slice()[i]);
+        }
+        
+        let slice = &mut sorted_refs[0..count];
+        for i in 1..slice.len() {
+            let mut j = i;
+            while j > 0 && slice[j - 1].unwrap().z_index > slice[j].unwrap().z_index {
+                slice.swap(j - 1, j);
+                j -= 1;
+            }
+        }
 
-        for layer in sorted {
+        for layer_opt in slice {
+            let layer = layer_opt.unwrap();
             for y in 0..layer.height {
                 let screen_y = layer.y + y;
                 if screen_y >= screen_height { continue; }

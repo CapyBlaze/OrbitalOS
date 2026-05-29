@@ -1,6 +1,6 @@
 use core::sync::atomic::Ordering;
 use alloc::format;
-use crate::{apps::{self, APP_MANAGER, AppInfo}, boot_info, drivers, frame_buffer::{self, ColorRGB, FRAMEBUFFER, FontName, Layer}, task::sleep};
+use crate::{apps::{self, APP_MANAGER, AppInfo}, boot_info, drivers, frame_buffer::{self, ColorRGB, FRAMEBUFFER, FontName, Layer}, serial_println, task::sleep};
 
 pub const HUD_BACKGROUND: ColorRGB = ColorRGB::new(0x0b, 0x0a, 0x1a);
 static mut HUD_LAYER_ID: u64 = 0;
@@ -152,4 +152,27 @@ fn draw_icon_app(layer: &mut Layer, app: AppInfo) {
             HUD_BACKGROUND
         );
     }
+
+
+
+    let icon_size: i32 = 56;
+    let spacing: i32 = 20;
+
+    let x_offset_start = app.position.0 as i32 * (icon_size + spacing) + spacing;
+    let y_offset_start = app.position.1 as i32 * (icon_size + spacing) + spacing;
+    let height_click_zone = icon_size + 5 + (16 * 2);
+
+    let app_name = app.name;
+    let layer_id = layer.id;
+
+    crate::task::mouse::register_click_zone(
+        x_offset_start, 
+        y_offset_start, 
+        icon_size, 
+        height_click_zone, 
+        layer_id,
+        move || {
+            serial_println!("System: Starting '{}' !", app_name);
+        }
+    );
 }

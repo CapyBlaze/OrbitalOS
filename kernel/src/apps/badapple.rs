@@ -42,8 +42,27 @@ pub async fn bad_apple() {
     );
 
 
+
+    
+
     let local_x = 4;
     let local_y = 24;
+
+    {
+        let mut manager = frame_buffer::LAYER_MANAGER.lock();
+        if let Some(layer) = manager.get_layer_mut(layer_id) {
+            layer.clear_transparent();
+            draw_window_app(
+                layer,
+                local_x,
+                local_y,
+                width,
+                height + 18,
+                "Bad Apple!!"
+            );
+        }
+    }
+
 
     for index in 0..frame_count {
         let frame_lba = entry.start_sector + 1 + (index as u32 * frame_disk_sectors as u32);
@@ -52,17 +71,6 @@ pub async fn bad_apple() {
         {
             let mut manager = frame_buffer::LAYER_MANAGER.lock();
             if let Some(layer) = manager.get_layer_mut(layer_id) {
-                layer.clear_transparent();
-
-                draw_window_app(
-                    layer,
-                    local_x,
-                    local_y,
-                    width,
-                    height + 18,
-                    "Bad Apple!!"
-                );
-
                 layer.draw_bitmap_1bpp(
                     local_x,
                     local_y,

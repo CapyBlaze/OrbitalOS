@@ -2,7 +2,7 @@ use conquer_once::spin::Lazy;
 use alloc::vec::Vec;
 use spin::Mutex;
 
-use crate::frame_buffer::{ColorRGB, FontName, Layer};
+use crate::{frame_buffer::{ColorRGB, FontName, Layer}};
 
 pub mod badapple;
 pub mod shell;
@@ -51,18 +51,23 @@ pub fn draw_window_app(layer: &mut Layer, x_app: usize, y_app: usize, width_app:
     let border_size = 4;
     let title_bar_height = 20;
 
-    let x_window = x_app - border_size;
-    let y_window = y_app - title_bar_height - border_size;
+    let x_window = x_app.saturating_sub(border_size);
+    let y_window = y_app.saturating_sub(title_bar_height + border_size);
+
     let width_window = width_app + (border_size * 2);
     let height_window = height_app + title_bar_height + (border_size * 2);
 
+
+    // Window background
     layer.draw_rect(x_window, y_window, width_window, height_window, ColorRGB::new(0xd9, 0xd9, 0xd9));
 
+    // Shadow effect
     layer.draw_rect(x_window, y_window, width_window, 1, ColorRGB::new(0xff, 0xff, 0xff));
     layer.draw_rect(x_window, y_window, 1, height_window, ColorRGB::new(0xff, 0xff, 0xff));
     layer.draw_rect(x_window, y_window + height_window - 1, width_window, 1, ColorRGB::new(0x55, 0x55, 0x55));
     layer.draw_rect(x_window + width_window - 1, y_window, 1, height_window, ColorRGB::new(0x55, 0x55, 0x55));
 
+    // Title bar
     let title_x = x_window + border_size;
     let title_y = y_window + border_size;
     let title_w = width_window - (border_size * 2);
@@ -77,17 +82,56 @@ pub fn draw_window_app(layer: &mut Layer, x_app: usize, y_app: usize, width_app:
         ColorRGB::new(0x4a, 0x46, 0x75)
     );
 
+    // Close button
     let close_button_size = title_bar_height - 10;
     let close_button_x = x_window + width_window - border_size - close_button_size - 4;
-    let close_button_y = y_window + border_size + 4;
+    let close_button_y = y_window + border_size + 5;
     layer.draw_circle(
         close_button_x, close_button_y, close_button_size, close_button_size, 
         ColorRGB::new(0xd1, 0x1d, 0x27)
     );
 
-
+    // Shadow effect
     layer.draw_rect(x_app - 1, y_app - 1, width_app + 2, 1, ColorRGB::new(0x80, 0x80, 0x80));
     layer.draw_rect(x_app - 1, y_app - 1, 1, height_app + 2, ColorRGB::new(0x80, 0x80, 0x80));
     layer.draw_rect(x_app - 1, y_app + height_app, width_app + 2, 1, ColorRGB::new(0xff, 0xff, 0xff));
     layer.draw_rect(x_app + width_app, y_app - 1, 1, height_app + 2, ColorRGB::new(0xff, 0xff, 0xff));
+
+
+
+    let gl_x = layer.x as i32;
+    let gl_y = layer.y as i32;
+    let layer_id = layer.id;
+
+    crate::task::mouse::register_click_zone(
+        gl_x + x_window as i32, 
+        gl_y + y_window as i32, 
+        width_window as i32, 
+        height_window as i32,
+        layer_id,
+        move || { }
+    );
+
+    crate::task::mouse::register_click_zone(
+        gl_x + title_x as i32, 
+        gl_y + title_y as i32,
+        title_w as i32, 
+        title_bar_height as i32,
+        layer_id,
+        move || { 
+            crate::task::mouse::start_drag(layer_id);
+        }
+    );
+
+    crate::task::mouse::register_click_zone(
+        gl_x + close_button_x as i32, 
+        gl_y + close_button_y as i32, 
+        close_button_size as i32, 
+        close_button_size as i32, 
+        layer_id,
+        move || {
+            crate::frame_buffer::LAYER_MANAGER.lock().remove_layer(layer_id);
+            crate::task::mouse::unregister_click_zones_for_layer(layer_id);
+        }
+    );
 }
