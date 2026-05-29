@@ -24,10 +24,10 @@ kernel.bin: FORCE
 	rust-objcopy -O binary kernel/target/x86_64-os/release/os kernel.bin
 
 run: os.img
-	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display default,show-cursor=off
+	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display sdl,show-cursor=off
 
 run-gui: FORCE
-	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display default,show-cursor=off
+	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display sdl,show-cursor=off
 
 tools: FORCE
 	cd tools/badapple_converter && cargo run --release

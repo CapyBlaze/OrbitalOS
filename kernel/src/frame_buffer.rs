@@ -20,6 +20,271 @@ impl ColorRGB {
 }
 
 
+pub struct Layer {
+    pub id: u64,
+    pub data: Vec<u8>,
+    pub width: usize,
+    pub height: usize,
+    pub x: usize,
+    pub y: usize,
+    pub z_index: usize,
+}
+
+impl Layer {
+    pub fn new(id: u64, width: usize, height: usize, x: usize, y: usize, z_index: usize) -> Self {
+        Self {
+            id,
+            data: vec![0; width * height * 4],
+            width,
+            height,
+            x,
+            y,
+            z_index,
+        }
+    }
+
+    pub fn clear(&mut self, color: ColorRGB) {
+        for i in 0..self.width * self.height {
+            self.data.as_mut_slice()[i * 4]     = color.r;
+            self.data.as_mut_slice()[i * 4 + 1] = color.g;
+            self.data.as_mut_slice()[i * 4 + 2] = color.b;
+            self.data.as_mut_slice()[i * 4 + 3] = 0xff;
+        }
+    }
+
+    pub fn clear_transparent(&mut self) {
+        self.data.fill(0);
+    }
+
+
+    pub fn put_pixel(&mut self, x: usize, y: usize, color: ColorRGB) {
+        if x >= self.width || y >= self.height {
+            return;
+        }
+        
+        let i = (y * self.width + x) * 4;
+
+        if i + 3 < self.data.len() {
+            self.data.as_mut_slice()[i]     = color.r;
+            self.data.as_mut_slice()[i + 1] = color.g;
+            self.data.as_mut_slice()[i + 2] = color.b;
+            self.data.as_mut_slice()[i + 3] = 0xff;
+        }
+    }
+
+    pub fn draw_rect(&mut self, x: usize, y: usize, width: usize, height: usize, color: ColorRGB) {
+        for py in 0..height {
+            for px in 0..width {
+                self.put_pixel(x + px, y + py, color);
+            }
+        }
+    }
+
+    pub fn draw_circle(&mut self, x: usize, y: usize, width: usize, height: usize, color: ColorRGB) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        let rx = width as f64 / 2.0;
+        let ry = height as f64 / 2.0;
+
+        let cx = x as f64 + rx;
+        let cy = y as f64 + ry;
+
+        for py in 0..height {
+            for px in 0..width {
+                let pixel_x = (x + px) as f64 + 0.5;
+                let pixel_y = (y + py) as f64 + 0.5;
+
+                let dx = pixel_x - cx;
+                let dy = pixel_y - cy;
+
+                if (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1.0 {
+                    self.put_pixel(x + px, y + py, color);
+                }
+            }
+        }
+    }
+
+
+    
+    pub fn draw_bitmap_1bpp(
+        &mut self,
+        x: usize,
+        y: usize,
+        width: usize,
+        height: usize,
+        bitmap: &[u8],
+        fg: ColorRGB,
+        bg: ColorRGB,
+    ) {
+        let bytes_per_row = (width + 7) / 8;
+        
+        for py in 0..height {
+            for px in 0..width {
+                let byte_index = py * bytes_per_row + (px / 8);
+                let byte = bitmap[byte_index];
+                let bit = (byte >> (7 - (px % 8))) & 1;
+
+                let color = if bit == 1 { fg } else { bg };
+                self.put_pixel(x + px, y + py, color);
+            }
+        }
+    }
+
+    pub fn text_draw(&mut self, x: usize, y: usize, text: &str, font_name: FontName, fg: ColorRGB, bg: ColorRGB) {
+        let glyphs: alloc::vec::Vec<_> = {
+            let manager = FONT_MANAGER.lock();
+            let Some(font) = manager.iter().find(|f| f.name == font_name) else { return; };
+            text.chars()
+                .filter(|c| *c as usize >= 32)
+                .filter_map(|c| {
+                    let ascii = c as usize;
+                    let start = 52 + (ascii - 32) * font.char_size;
+                    let end = start + font.char_size;
+                    let bytes = font.data.get(start..end)?.to_vec();
+                    Some((font.font_bounding_box, bytes))
+                })
+                .collect()
+        };
+
+        let mut current_x = x;
+        for (bbox, glyph_bytes) in &glyphs {
+            let (font_width, font_height, _, _) = *bbox;
+            let bytes_per_row = (font_width + 7) / 8;
+
+            for py in 0..font_height {
+                for px in 0..font_width {
+                    let byte_index = py * bytes_per_row + (px / 8);
+                    let byte = glyph_bytes[byte_index];
+                    let bit = (byte >> (7 - (px % 8))) & 1;
+                    let color = if bit == 1 { fg } else { bg };
+
+                    self.put_pixel(current_x + px, y + py, color);
+                }
+            }
+            current_x += font_width;
+        }
+    }
+
+    pub fn image_rgba_draw(&mut self, x: usize, y: usize, width: usize, height: usize, data: &[u8]) {
+        for py in 0..height {
+            for px in 0..width {
+                let src = (py * width + px) * 4;
+                if src + 3 >= data.len() { continue; }
+
+                let a = data[src + 3];
+                if a == 0 { continue; }
+
+                let dst = ((y + py) * self.width + (x + px)) * 4;
+                if dst + 3 < self.data.len() {
+                    self.data.as_mut_slice()[dst]     = data[src];     // R
+                    self.data.as_mut_slice()[dst + 1] = data[src + 1]; // G
+                    self.data.as_mut_slice()[dst + 2] = data[src + 2]; // B
+                    self.data.as_mut_slice()[dst + 3] = a;             // A
+                }
+            }
+        }
+    }
+}
+
+pub struct LayerManager {
+    pub layers: Vec<Layer>,
+    next_id: u64,
+}
+
+impl LayerManager {
+    pub const fn new() -> Self {
+        Self {
+            layers: Vec::new(),
+            next_id: 1,
+        }
+    }
+
+    pub fn create_layer(&mut self, width: usize, height: usize, x: usize, y: usize, z_index: usize) -> u64 {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        let layer = Layer::new(id, width, height, x, y, z_index);
+        self.push_layer(layer);
+
+        id
+    }
+
+    pub fn get_layer_mut(&mut self, id: u64) -> Option<&mut Layer> {
+        self.layers.iter_mut().find(|l| l.id == id)
+    }
+
+    pub fn remove_layer(&mut self, id: u64) {
+        self.layers.retain(|l| l.id != id);
+    }
+
+    pub fn push_layer(&mut self, layer: Layer) -> usize {
+        self.layers.push(layer);
+        self.layers.len() - 1
+    }
+
+    pub fn insert_at(&mut self, z_index: usize, layer: Layer) {
+        if z_index >= self.layers.len() {
+            self.layers.push(layer);
+        } else {
+            self.layers.insert(z_index, layer);
+        }
+    }
+
+    pub fn bring_to_front(&mut self, id: u64) {
+        if let Some(index) = self.layers.iter().position(|l| l.id == id) {
+            let layer = self.layers.remove(index);
+            self.layers.push(layer);
+        }
+    }
+
+    pub fn compose(&self, backbuffer: &mut [u8], screen_width: usize, screen_height: usize, stride_bytes: usize, bytes_per_pixel: usize) {
+        let mut sorted: Vec<&Layer> = self.layers.iter().collect();
+        sorted.sort_by_key(|l| l.z_index);
+
+        for layer in sorted {
+            for y in 0..layer.height {
+                let screen_y = layer.y + y;
+                if screen_y >= screen_height { continue; }
+
+                for x in 0..layer.width {
+                    let screen_x = layer.x + x;
+                    if screen_x >= screen_width { continue; }
+
+                    let src = (y * layer.width + x) * 4;
+                    if src + 3 >= layer.data.len() { continue; }
+
+                    let a = layer.data[src + 3];
+                    if a == 0 { continue; }
+
+                    let dst = screen_y * stride_bytes + screen_x * bytes_per_pixel;
+                    if dst + bytes_per_pixel > backbuffer.len() { continue; }
+
+                    let r = layer.data[src];
+                    let g = layer.data[src + 1];
+                    let b = layer.data[src + 2];
+
+                    if a == 0xff {
+                        backbuffer[dst]     = b;
+                        backbuffer[dst + 1] = g;
+                        backbuffer[dst + 2] = r;
+                    } else {
+                        let a16 = a as u16;
+                        backbuffer[dst]     = ((b as u16 * a16 + backbuffer[dst]     as u16 * (255 - a16)) / 255) as u8;
+                        backbuffer[dst + 1] = ((g as u16 * a16 + backbuffer[dst + 1] as u16 * (255 - a16)) / 255) as u8;
+                        backbuffer[dst + 2] = ((r as u16 * a16 + backbuffer[dst + 2] as u16 * (255 - a16)) / 255) as u8;
+                    }
+                    if bytes_per_pixel == 4 { backbuffer[dst + 3] = 0; }
+                }
+            }
+        }
+    }
+}
+
+pub static LAYER_MANAGER: Mutex<LayerManager> = Mutex::new(LayerManager::new());
+
+
 
 #[repr(C)]
 pub struct FrameBuffer {
@@ -51,6 +316,8 @@ pub static FRAMEBUFFER: Mutex<FrameBuffer> = Mutex::new(FrameBuffer {
     height: 0,
     stride: 0,
 });
+
+
 
 
 pub static FONT_MANAGER: Mutex<Vec<KernelFont>> = Mutex::new(Vec::new());
@@ -140,6 +407,7 @@ impl FontName {
 }
 
 
+
 pub unsafe fn init(vbe_info: *const u8) {
     let pitch  = *(vbe_info.add(16) as *const u16) as usize;
     let width  = *(vbe_info.add(18) as *const u16) as usize;
@@ -203,103 +471,7 @@ pub fn init_fonts() {
     }
 }
 
-pub fn put_pixel(x: usize, y: usize, color: ColorRGB) {
-    if let Some(ref mut state) = *FB_STATE.lock() {
-        if x >= state.width || y >= state.height {
-            return;
-        }
-        
-        let i = y * state.stride_bytes + x * state.bytes_per_pixel;
 
-        if i + state.bytes_per_pixel <= state.backbuffer.as_slice().len() {
-            state.backbuffer.as_mut_slice()[i] = color.b;
-            if state.bytes_per_pixel > 1 {
-                state.backbuffer.as_mut_slice()[i + 1] = color.g;
-            }
-            if state.bytes_per_pixel > 2 {
-                state.backbuffer.as_mut_slice()[i + 2] = color.r;
-            }
-            if state.bytes_per_pixel > 3 {
-                state.backbuffer.as_mut_slice()[i + 3] = 0x00;
-            }
-        }
-    }
-}
-
-pub fn draw_bitmap_1bpp (
-    x: usize,
-    y: usize,
-    width: usize,
-    height: usize,
-    bitmap: &[u8],
-    fg: ColorRGB,
-    bg: ColorRGB,
-) {
-    let mut fb = FB_STATE.lock();
-    let state = match fb.as_mut() {
-        Some(s) => s,
-        None => return,
-    };
-
-
-    let bytes_per_row = (width + 7) / 8;
-    
-    for py in 0..height {
-        for px in 0..width {
-            let byte_index = py * bytes_per_row + (px / 8);
-
-            let byte = bitmap[byte_index];
-            let bit = (byte >> (7 - (px % 8))) & 1;
-
-            let color = if bit == 1 { fg } else { bg };
-
-            let sx = x + px;
-            let sy = y + py;
-
-            let i =
-                sy * state.stride_bytes +
-                sx * state.bytes_per_pixel;
-
-            if i + 3 >= state.backbuffer.as_slice().len() {
-                continue;
-            }
-
-            state.backbuffer.as_mut_slice()[i + 0] = color.b;
-            state.backbuffer.as_mut_slice()[i + 1] = color.g;
-            state.backbuffer.as_mut_slice()[i + 2] = color.r;
-
-            if state.bytes_per_pixel == 4 {
-                state.backbuffer.as_mut_slice()[i + 3] = 0;
-            }
-        }
-    }
-}
-
-pub fn draw_rect(x: usize, y: usize, width: usize, height: usize, color: ColorRGB) {
-    let mut guard = FB_STATE.lock();
-    let state = match guard.as_mut() {
-        Some(s) => s,
-        None => return,
-    };
-
-    for py in 0..height {
-        for px in 0..width {
-            let sx = x + px;
-            let sy = y + py;
-            if sx >= state.width || sy >= state.height { continue; }
-
-            let i = sy * state.stride_bytes + sx * state.bytes_per_pixel;
-            if i + state.bytes_per_pixel > state.backbuffer.len() { continue; }
-
-            state.backbuffer.as_mut_slice()[i]     = color.b;
-            state.backbuffer.as_mut_slice()[i + 1] = color.g;
-            state.backbuffer.as_mut_slice()[i + 2] = color.r;
-            if state.bytes_per_pixel == 4 {
-                state.backbuffer.as_mut_slice()[i + 3] = 0x00;
-            }
-        }
-    }
-}
 
 pub fn clear(color: ColorRGB) {
     if let Some(ref mut state) = *FB_STATE.lock() {
@@ -319,90 +491,6 @@ pub fn clear(color: ColorRGB) {
                 if state.bytes_per_pixel > 3 {
                     state.backbuffer.as_mut_slice()[i + 3] = 0x00;
                 }
-            }
-        }
-    }
-}
-
-pub fn text_draw(x: usize, y: usize, text: &str, font_name: FontName, fg: ColorRGB, bg: ColorRGB) {
-    let glyphs: alloc::vec::Vec<_> = {
-        let manager = FONT_MANAGER.lock();
-        let Some(font) = manager.iter().find(|f| f.name == font_name) else { return; };
-        text.chars()
-            .filter(|c| *c as usize >= 32)
-            .filter_map(|c| {
-                let ascii = c as usize;
-                let start = 52 + (ascii - 32) * font.char_size;
-                let end = start + font.char_size;
-                let bytes = font.data.get(start..end)?.to_vec();
-                Some((font.font_bounding_box, bytes))
-            })
-            .collect()
-    };
-
-
-    let mut guard = FB_STATE.lock();
-    let state = match guard.as_mut() { Some(s) => s, None => return };
-
-    let mut current_x = x;
-    for (bbox, glyph_bytes) in &glyphs {
-        let (font_width, font_height, _, _) = *bbox;
-        let bytes_per_row = (font_width + 7) / 8;
-
-        for py in 0..font_height {
-            for px in 0..font_width {
-                let byte_index = py * bytes_per_row + (px / 8);
-                let byte = glyph_bytes[byte_index];
-                let bit = (byte >> (7 - (px % 8))) & 1;
-                let color = if bit == 1 { fg } else { bg };
-
-                let sx = current_x + px;
-                let sy = y + py;
-                if sx >= state.width || sy >= state.height { continue; }
-
-                let i = sy * state.stride_bytes + sx * state.bytes_per_pixel;
-                if i + state.bytes_per_pixel > state.backbuffer.len() { continue; }
-
-                state.backbuffer.as_mut_slice()[i]     = color.b;
-                state.backbuffer.as_mut_slice()[i + 1] = color.g;
-                state.backbuffer.as_mut_slice()[i + 2] = color.r;
-                if state.bytes_per_pixel == 4 {
-                    state.backbuffer.as_mut_slice()[i + 3] = 0x00;
-                }
-            }
-        }
-
-        current_x += font_width;
-    }
-}
-
-pub fn image_rgba_draw(x: usize, y: usize, width: usize, height: usize, data: &[u8]) {
-    let mut guard = FB_STATE.lock(); // un seul lock
-    let state = match guard.as_mut() {
-        Some(s) => s,
-        None => return,
-    };
-    
-    for py in 0..height {
-        for px in 0..width {
-            let src = (py * width + px) * 4;
-            if src + 3 >= data.len() { continue; }
-
-            let a = data[src + 3];
-            if a == 0 { continue; }
-
-            let sx = x + px;
-            let sy = y + py;
-            if sx >= state.width || sy >= state.height { continue; }
-
-            let i = sy * state.stride_bytes + sx * state.bytes_per_pixel;
-            if i + state.bytes_per_pixel > state.backbuffer.len() { continue; }
-
-            state.backbuffer.as_mut_slice()[i]     = data[src + 2]; // b
-            state.backbuffer.as_mut_slice()[i + 1] = data[src + 1]; // g
-            state.backbuffer.as_mut_slice()[i + 2] = data[src];     // r
-            if state.bytes_per_pixel == 4 {
-                state.backbuffer.as_mut_slice()[i + 3] = 0x00;
             }
         }
     }
@@ -444,57 +532,18 @@ pub fn capture_area(x: usize, y: usize, width: usize, height: usize) -> Vec<u8> 
 }
 
 
-
-pub fn swap_buffers() {
+pub fn draw_layers_to_screen() {
     if let Some(ref mut state) = *FB_STATE.lock() {
+        state.backbuffer.fill(0); 
+
+        LAYER_MANAGER.lock().compose(
+            &mut state.backbuffer.as_mut_slice(),
+            state.width,
+            state.height,
+            state.stride_bytes,
+            state.bytes_per_pixel,
+        );
+
         state.buffer.copy_from_slice(state.backbuffer.as_slice());
-    }
-}
-
-pub fn buffer_image_rgba_draw(x: usize, y: usize, width: usize, height: usize, data: &[u8]) {
-    let mut guard = FB_STATE.lock();
-    let state = match guard.as_mut() {
-        Some(s) => s,
-        None => return,
-    };
-
-    for py in 0..height {
-        let sy = y + py;
-        if sy >= state.height { continue; }
-        
-        let row_start = sy * state.stride_bytes;
-
-        for px in 0..width {
-            let sx = x + px;
-            if sx >= state.width { continue; }
-
-            let src_idx = (py * width + px) * 4;
-
-            if src_idx + 3 >= data.len() {
-                continue;
-            }
-
-            let r = data[src_idx];
-            let g = data[src_idx + 1];
-            let b = data[src_idx + 2];
-            let a = data[src_idx + 3];
-
-            if a > 0 {
-                let dest_idx = row_start + sx * state.bytes_per_pixel;
-
-                if dest_idx + state.bytes_per_pixel <= state.buffer.len() {
-                    state.buffer[dest_idx] = b;
-                    if state.bytes_per_pixel > 1 {
-                        state.buffer[dest_idx + 1] = g;
-                    }
-                    if state.bytes_per_pixel > 2 {
-                        state.buffer[dest_idx + 2] = r;
-                    }
-                    if state.bytes_per_pixel > 3 {
-                        state.buffer[dest_idx + 3] = 0x00;
-                    }
-                }
-            }
-        }
     }
 }

@@ -46,8 +46,17 @@ pub extern "C" fn _start(
     unsafe {
         os::frame_buffer::init(vbe_info as *const u8);
     }
-    os::frame_buffer::clear(ColorRGB::new(0x00, 0x00, 0x00));
     os::frame_buffer::init_fonts();
+
+    let (width_screen, height_screen) = {
+        let fb = os::frame_buffer::FRAMEBUFFER.lock();
+        (fb.width, fb.height)
+    };
+
+    let bg_id = os::frame_buffer::LAYER_MANAGER.lock().create_layer(width_screen, height_screen, 0, 0, 0);
+    if let Some(layer) = os::frame_buffer::LAYER_MANAGER.lock().get_layer_mut(bg_id) {
+        layer.clear(ColorRGB::new(0x00, 0x00, 0x00)); 
+    }
     serial_println!("Boot: frame buffer init done");
     
     // Initialize the HUD OS

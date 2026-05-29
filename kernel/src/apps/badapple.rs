@@ -29,39 +29,61 @@ pub async fn bad_apple() {
         let fb = FRAMEBUFFER.lock();
         (fb.width, fb.height)
     };
+    let app_x = (width_screen - width) / 2;
+    let app_y = (height_screen - height) / 2 - 50;
 
-    draw_window_app(
-        (width_screen - width) / 2,
-        (height_screen - height) / 2 - 50,
-        width,
-        height + 18,
-        "Bad Apple!!"
+
+    let layer_id = frame_buffer::LAYER_MANAGER.lock().create_layer(
+        width + 8, 
+        height + 18 + 28, 
+        app_x, 
+        app_y, 
+        10
     );
 
+
+    let local_x = 4;
+    let local_y = 24;
 
     for index in 0..frame_count {
         let frame_lba = entry.start_sector + 1 + (index as u32 * frame_disk_sectors as u32);
         ata::read_sectors(frame_lba, frame_disk_sectors as u32, frame_disk_buffer.as_mut_slice());
 
+        {
+            let mut manager = frame_buffer::LAYER_MANAGER.lock();
+            if let Some(layer) = manager.get_layer_mut(layer_id) {
+                layer.clear_transparent();
 
-        frame_buffer::draw_bitmap_1bpp(
-            (width_screen - width) / 2,
-            (height_screen - height) / 2 - 50,
-            width,
-            height,
-            frame_disk_buffer.as_mut_slice(),
-            ColorRGB::new(0xFF, 0xFF, 0xFF),
-            ColorRGB::new(0x00, 0x00, 0x00),
-        );
+                draw_window_app(
+                    layer,
+                    local_x,
+                    local_y,
+                    width,
+                    height + 18,
+                    "Bad Apple!!"
+                );
 
-        frame_buffer::text_draw(
-            (width_screen - width) / 2,
-            (height_screen + height) / 2 - 50 + 2,
-            format!("{:04}/{:04}", index + 1, frame_count).as_str(), 
-            FontName::SpleenSmall, 
-            ColorRGB::new(0x00, 0x00, 0x00), 
-            ColorRGB::new(0xd9, 0xd9, 0xd9)
-        );
+                layer.draw_bitmap_1bpp(
+                    local_x,
+                    local_y,
+                    width,
+                    height,
+                    frame_disk_buffer.as_mut_slice(),
+                    ColorRGB::new(0xFF, 0xFF, 0xFF),
+                    ColorRGB::new(0x00, 0x00, 0x00),
+                );
+
+                let text_counter = format!("{:04}/{:04}", index + 1, frame_count);
+                layer.text_draw(
+                    local_x + 4,
+                    local_y + height + 2,
+                    text_counter.as_str(), 
+                    FontName::SpleenSmall, 
+                    ColorRGB::new(0x0a, 0x0a, 0x0a),
+                    ColorRGB::new(0xd9, 0xd9, 0xd9),
+                );
+            }
+        }
 
         sleep::sleep_ms(1000 / 24).await;
     }
