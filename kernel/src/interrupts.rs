@@ -18,6 +18,7 @@ pub static PICS: spin::Mutex<ChainedPics> =
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
     Keyboard,
+    Mouse = PIC_2_OFFSET + 4,
 }
 
 impl InterruptIndex {
@@ -39,6 +40,7 @@ lazy_static! {
 
         idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
         idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(keyboard_interrupt_handler);
+        idt[InterruptIndex::Mouse.as_u8()].set_handler_fn(mouse_interrupt_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
         idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
         
@@ -58,10 +60,10 @@ pub fn mask_all_irqs() {
     });
 }
 
-pub fn unmask_timer_and_keyboard() {
+pub fn unmask_timer_keyboard_mouse() {
     x86_64::instructions::interrupts::without_interrupts(|| {
         unsafe {
-            PICS.lock().write_masks(0xfc, 0xff);
+            PICS.lock().write_masks(0xf8, 0xef);
         }
     });
 }
@@ -77,10 +79,7 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    crate::task::TICKS.fetch_add(
-        1,
-        Ordering::Relaxed
-    );
+    crate::task::TICKS.fetch_add(1, Ordering::Relaxed);
     crate::task::sleep::wake_sleeping_tasks();
 
     unsafe {
@@ -93,11 +92,21 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 
     let mut port = Port::new(0x60);
     let scancode: u8 = unsafe { port.read() };
-    crate::keyboard::add_scancode(scancode);
+
+    crate::drivers::keyboard::add_scancode(scancode);
 
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+    }
+}
+
+extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    crate::drivers::mouse::handle_interrupt();
+
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Mouse.as_u8());
     }
 }
 

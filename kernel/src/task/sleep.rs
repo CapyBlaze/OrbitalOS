@@ -7,9 +7,7 @@ use spin::Mutex;
 
 
 lazy_static! {
-    static ref SLEEPERS:
-        Mutex<Vec<Sleeper>> =
-            Mutex::new(Vec::new());
+    static ref SLEEPERS: Mutex<Vec<Sleeper>> = Mutex::new(Vec::new());
 }
 
 struct Sleeper {
@@ -25,7 +23,7 @@ pub struct Sleep {
 impl Future for Sleep {
     type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
         let current = TICKS.load(Ordering::Relaxed);
 
         if current >= self.wake_tick {
@@ -33,13 +31,12 @@ impl Future for Sleep {
         }
 
         if !self.resistered {
-            SLEEPERS.lock().push(
-                Sleeper {
+            x86_64::instructions::interrupts::without_interrupts(|| {
+                SLEEPERS.lock().push(Sleeper {
                     wake_tick: self.wake_tick,
-                    waker: _cx.waker().clone(),
-                }
-            );
-
+                    waker: cx.waker().clone(),
+                });
+            });
             self.resistered = true;
         }
 
@@ -56,22 +53,22 @@ pub fn sleep(ticks: u64) -> Sleep {
     }
 }
 
+pub async fn sleep_ms(ms: u64) {
+    self::sleep(ms.max(1)).await;
+}
+
 
 pub fn wake_sleeping_tasks() {
     let current = TICKS.load(Ordering::Relaxed);
     let mut sleepers = SLEEPERS.lock();
-    let mut i = 0;
-
-    while i < sleepers.len() {
-        if current >= sleepers[i].wake_tick {
-            sleepers[i]
-                .waker
-                .wake_by_ref();
-
-            sleepers.remove(i);
+    
+    sleepers.retain(|sleeper| {
+        if current >= sleeper.wake_tick {
+            sleeper.waker.wake_by_ref();
+            false
 
         } else {
-            i += 1;
+            true
         }
-    }
+    });
 }

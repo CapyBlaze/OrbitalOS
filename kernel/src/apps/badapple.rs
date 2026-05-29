@@ -1,6 +1,6 @@
 use alloc::{format, vec};
 
-use crate::{apps::hud, boot_info, drivers::ata, frame_buffer::{self, ColorRGB, FRAMEBUFFER, FontName}, serial_println, task::sleep};
+use crate::{apps::{draw_window_app}, boot_info, drivers::ata, frame_buffer::{self, ColorRGB, FRAMEBUFFER, FontName}, serial_println, task::sleep};
 
 pub async fn bad_apple() {
     let Some(entry) = boot_info::find_file("bad_apple.bin") else {
@@ -30,7 +30,7 @@ pub async fn bad_apple() {
         (fb.width, fb.height)
     };
 
-    hud::draw_window_app(
+    draw_window_app(
         (width_screen - width) / 2,
         (height_screen - height) / 2 - 50,
         width,
@@ -63,6 +63,6 @@ pub async fn bad_apple() {
             ColorRGB::new(0xd9, 0xd9, 0xd9)
         );
 
-        sleep::sleep(1).await;
+        sleep::sleep_ms(1000 / 24).await;
     }
 }

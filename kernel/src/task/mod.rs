@@ -3,11 +3,13 @@ use alloc::{boxed::Box};
 
 pub mod simple_executor;
 pub mod keyboard;
+pub mod mouse;
 pub mod executor;
 pub mod yield_now;
 pub mod sleep;
 pub mod manager;
 pub mod channel;
+pub mod render;
 
 
 pub static TICKS: AtomicU64 = AtomicU64::new(0);

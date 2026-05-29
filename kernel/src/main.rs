@@ -47,33 +47,39 @@ pub extern "C" fn _start(
         os::frame_buffer::init(vbe_info as *const u8);
     }
     os::frame_buffer::clear(ColorRGB::new(0x00, 0x00, 0x00));
-    serial_println!("Boot: frame buffer init done");
     os::frame_buffer::init_fonts();
-
-
+    serial_println!("Boot: frame buffer init done");
+    
     // Initialize the HUD OS
     os::apps::hud::init();
 
 
-    // Initialize the keyboard task
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        os::task::keyboard::init();
-        serial_println!("Boot: keyboard init done");
-    });
+    // Initialize mouse and keyboard drivers
+    os::drivers::mouse::init();
+    os::drivers::keyboard::init();
+    os::drivers::pit::init();
+    serial_println!("Boot: drivers init done");
+
+
+    // Initialize mouse task
+    os::task::mouse::init();
 
 
     // Initialize the executor and spawn tasks
     let mut executor = Executor::new();
     serial_println!("Boot: executor created");
+    
     executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
-    // executor.spawn(Task::new("badapple", os::apps::badapple::bad_apple()));
-    executor.spawn(Task::new("hudtime", os::apps::hud::time_update()));
+    executor.spawn(Task::new("Mouse", os::task::mouse::print_mouse_packets()));
+    executor.spawn(Task::new("Render", os::task::render::render_loop()));
+    executor.spawn(Task::new("BadApple", os::apps::badapple::bad_apple()));
+    executor.spawn(Task::new("HudTime", os::apps::hud::time_update()));
     serial_println!("Boot: tasks spawned");
 
 
     // Enable interrupts and run the executor
     os::interrupts::mask_all_irqs();
-    os::interrupts::unmask_timer_and_keyboard();
+    os::interrupts::unmask_timer_keyboard_mouse();
     executor.run();
 }
 

@@ -38,21 +38,33 @@ impl BootFileEntry {
 
 pub unsafe fn init(_manifest: *const BootManifest) {}
 
-fn read_manifest() -> [u8; 512] {
-    let mut sector = [0u8; 512];
-    ata::read_sectors(MANIFEST_SECTOR, 1, &mut sector);
-
-    sector
+fn sectors_for(size: usize) -> usize {
+    ((size + 511) / 512) as usize
 }
 
-pub fn find_file(name: &str) -> Option<BootFileEntry> {
-    let sector = read_manifest();
-    let manifest = unsafe { &*(sector.as_ptr() as *const BootManifest) };
+fn read_manifest() -> Vec<u8> {
+    let mut first_sector = [0u8; 512];
+    ata::read_sectors(MANIFEST_SECTOR, 1, &mut first_sector);
+
+    let manifest = unsafe { &*(first_sector.as_ptr() as *const BootManifest) };
     assert_eq!(manifest.magic, *b"OSMF", "invalid boot manifest magic");
     assert_eq!(manifest.entry_size as usize, size_of::<BootFileEntry>());
 
+    let total_bytes = size_of::<BootManifest>() + (manifest.file_count as usize * manifest.entry_size as usize);
+    let total_sectors = sectors_for(total_bytes);
+
+    let mut buffer = vec![0u8; (total_sectors * 512) as usize];
+    ata::read_sectors(MANIFEST_SECTOR, total_sectors as u32, buffer.as_mut_slice());
+
+    buffer
+}
+
+pub fn find_file(name: &str) -> Option<BootFileEntry> {
+    let manifest_bytes = read_manifest();
+    let manifest = unsafe { &*(manifest_bytes.as_ptr() as *const BootManifest) };
+
     let entries_ptr = unsafe {
-        sector.as_ptr().add(size_of::<BootManifest>()) as *const BootFileEntry
+        manifest_bytes.as_ptr().add(size_of::<BootManifest>()) as *const BootFileEntry
     };
     let entries = unsafe {
         core::slice::from_raw_parts(entries_ptr, manifest.file_count as usize)

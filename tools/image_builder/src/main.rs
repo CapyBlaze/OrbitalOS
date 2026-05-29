@@ -80,15 +80,20 @@ fn collect_bin_files(path: &Path, files: &mut Vec<std::path::PathBuf>) {
     }
 }
 
-fn generate_layout_inc(stage2_sectors: u32) {
+fn generate_layout_inc(stage2_sectors: u32, manifest_sectors: u32, kernel_sectors: u32) {
     let manifest_sector = 1 + stage2_sectors;
-    let kernel_sector = manifest_sector + 1;
+    let kernel_sector = manifest_sector + manifest_sectors;
+    let resources_sector = kernel_sector + kernel_sectors;
 
     let text = format!(
         "%define MANIFEST_SECTOR {}\n\
-         %define KERNEL_START_SECTOR {}\n",
+         %define MANIFEST_SECTORS {}\n\
+         %define KERNEL_START_SECTOR {}\n\
+         %define RESOURCES_START_SECTOR {}\n",
         manifest_sector,
-        kernel_sector
+        manifest_sectors,
+        kernel_sector,
+        resources_sector
     );
 
     fs::write(
@@ -115,30 +120,14 @@ fn build_image() {
     let kernel_sectors = sectors_for(kernel.len());
     let stage2_sectors = sectors_for(stage2.len());
 
-    generate_layout_inc(stage2_sectors);
-    generate_kernel_layout_rs(stage2_sectors);
-
-    let manifest_sector = 1 + stage2_sectors;
-    let kernel_sector = manifest_sector + 1;
-    let resources_start_sector = kernel_sector + kernel_sectors;
-
-    let mut entries: Vec<(FileEntry, Vec<u8>)> = Vec::new();
     let resources_path = Path::new("kernel/resources");
+    let mut resource_files: Vec<(String, Vec<u8>)> = Vec::new();
 
+    let mut raw_paths = Vec::new();
+    collect_bin_files(resources_path, &mut raw_paths);
 
-    let mut current_sector = resources_start_sector;
-
-    let mut resource_files = Vec::new();
-    collect_bin_files(resources_path, &mut resource_files);
-
-    for path in resource_files {
+    for path in raw_paths {
         if !path.is_file() {
-            continue;
-        }   
-
-        let extension = path.extension().and_then(|e| e.to_str());
-
-        if extension != Some("bin") {
             continue;
         }
 
@@ -150,14 +139,36 @@ fn build_image() {
             .to_string();
 
         let data = fs::read(&path).unwrap();
+        resource_files.push((filename, data));
+    }
 
+    let manifest_sector = 1 + stage2_sectors;
+
+    let header = ManifestHeader {
+        magic: *b"OSMF",
+        version: 1,
+        kernel_sectors,
+        file_count: resource_files.len() as u32,
+        entry_size: mem::size_of::<FileEntry>() as u32,
+    };
+
+    let manifest_raw_size = mem::size_of::<ManifestHeader>() + (resource_files.len() * mem::size_of::<FileEntry>());
+    let manifest_sectors = sectors_for(manifest_raw_size);
+    let kernel_sector = manifest_sector + manifest_sectors;
+    let resources_start_sector = kernel_sector + kernel_sectors;
+
+    generate_layout_inc(stage2_sectors, manifest_sectors, kernel_sectors);
+    generate_kernel_layout_rs(stage2_sectors);
+
+    let mut entries: Vec<(FileEntry, Vec<u8>)> = Vec::new();
+    let mut current_sector = resources_start_sector;
+
+    for (filename, data) in resource_files {
         let sector_count = sectors_for(data.len());
 
         let mut name = [0u8; 32];
-
         let bytes = filename.as_bytes();
         let len = bytes.len().min(32);
-
         name[..len].copy_from_slice(&bytes[..len]);
 
         let entry = FileEntry {
@@ -177,17 +188,8 @@ fn build_image() {
         );
 
         entries.push((entry, data));
-
         current_sector += sector_count;
     }
-
-    let header = ManifestHeader {
-        magic: *b"OSMF",
-        version: 1,
-        kernel_sectors,
-        file_count: entries.len() as u32,
-        entry_size: mem::size_of::<FileEntry>() as u32,
-    };
 
     let image_size = (current_sector * 512) as usize;
     let mut img = vec![0u8; image_size];
@@ -228,8 +230,8 @@ fn build_image() {
         manifest_write_offset += entry_bytes.len();
     }
 
-    // Manifest dump (1 secteur)
-    let mut padded_manifest = vec![0u8; 512];
+    // Manifest dump (variable size, rounded to sectors)
+    let mut padded_manifest = vec![0u8; (manifest_sectors * 512) as usize];
 
     padded_manifest[..header_bytes.len()]
         .copy_from_slice(header_bytes);

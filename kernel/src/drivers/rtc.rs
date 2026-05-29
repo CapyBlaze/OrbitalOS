@@ -10,6 +10,10 @@ fn read_rtc_register(reg: u8) -> u8 {
     }
 }
 
+fn is_update_in_progress() -> bool {
+    read_rtc_register(0x0A) & 0x80 != 0
+}
+
 fn bcd_to_binary(value: u8) -> u8 {
     ((value >> 4) * 10) + (value & 0x0F)
 }
@@ -26,20 +30,34 @@ pub struct RtcTime {
 }
 
 pub fn read_rtc() -> RtcTime {
-    let second = bcd_to_binary(read_rtc_register(0x00));
-    let minute = bcd_to_binary(read_rtc_register(0x02));
-    let hour   = bcd_to_binary(read_rtc_register(0x04));
+    while is_update_in_progress() {}
 
-    let day    = bcd_to_binary(read_rtc_register(0x07));
-    let month  = bcd_to_binary(read_rtc_register(0x08));
-    let year   = bcd_to_binary(read_rtc_register(0x09));
+    let s1 = read_rtc_register(0x00);
+    let m1 = read_rtc_register(0x02);
+    let h1 = read_rtc_register(0x04);
+    let d1 = read_rtc_register(0x07);
+    let mo1 = read_rtc_register(0x08);
+    let y1 = read_rtc_register(0x09);
 
-    RtcTime {
-        second,
-        minute,
-        hour,
-        day,
-        month,
-        year,
+    loop {
+        while is_update_in_progress() {}
+
+        let s2  = read_rtc_register(0x00);
+        let m2  = read_rtc_register(0x02);
+        let h2  = read_rtc_register(0x04);
+        let d2  = read_rtc_register(0x07);
+        let mo2 = read_rtc_register(0x08);
+        let y2  = read_rtc_register(0x09);
+
+        if s1 == s2 && m1 == m2 && h1 == h2 && d1 == d2 && mo1 == mo2 && y1 == y2 {
+            return RtcTime {
+                second: bcd_to_binary(s2),
+                minute: bcd_to_binary(m2),
+                hour:   bcd_to_binary(h2),
+                day:    bcd_to_binary(d2),
+                month:  bcd_to_binary(mo2),
+                year:   bcd_to_binary(y2),
+            };
+        }
     }
 }

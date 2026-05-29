@@ -24,14 +24,15 @@ kernel.bin: FORCE
 	rust-objcopy -O binary kernel/target/x86_64-os/release/os kernel.bin
 
 run: os.img
-	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std
+	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display default,show-cursor=off
 
 run-gui: FORCE
-	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std
+	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display default,show-cursor=off
 
 tools: FORCE
 	cd tools/badapple_converter && cargo run --release
 	cd tools/fonts_builder && cargo run --release
+	cd tools/picture_builder && cargo run --release
 	@echo "Bad Apple binary generated at $(PAYLOAD_BIN)"
 
 clean:
