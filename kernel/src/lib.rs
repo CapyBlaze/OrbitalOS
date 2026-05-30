@@ -16,6 +16,7 @@ pub mod task;
 pub mod boot_info;
 pub mod frame_buffer;
 pub mod apps;
+pub mod sys;
 pub mod drivers {
     pub mod keyboard;
     pub mod rtc;

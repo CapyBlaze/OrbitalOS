@@ -1,10 +1,17 @@
 use crate::{serial_println, task::{TaskState, manager::{TASK_MANAGER, TaskInfo}}};
 use super::{Task, TaskId};
-use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
+use alloc::{collections::BTreeMap, sync::Arc, task::Wake, vec::Vec};
 use x86_64::instructions::interrupts;
 use core::task::{Waker, Context, Poll};
 use crossbeam_queue::ArrayQueue;
 
+static NEW_TASKS_QUEUE: spin::Mutex<Vec<Task>> = spin::Mutex::new(Vec::new());
+
+pub fn spawn(task: Task) {
+    interrupts::without_interrupts(|| {
+        NEW_TASKS_QUEUE.lock().push(task);
+    });
+}
 
 struct TaskWaker {
     task_id: TaskId,
@@ -50,6 +57,32 @@ impl Executor {
         }
     }
 
+    fn accept_new_tasks(&mut self) {
+        let mut global_queue = NEW_TASKS_QUEUE.lock();
+        
+        while let Some(task) = global_queue.pop() {
+            let task_id = task.id;
+
+            interrupts::without_interrupts(|| {
+                TASK_MANAGER.lock().add_task(
+                    TaskInfo {
+                        id: task.id(),
+                        name: task.name(),
+                        state: task.state(),
+                        cpu_ticks: task.cpu_ticks(),
+                        layer_id: task.layer_id(),
+                    }
+                );
+            });
+
+            if self.tasks.insert(task.id, task).is_some() {
+                panic!("task with same ID already in tasks");
+            }
+
+            self.task_queue.push(task_id).expect("queue full");
+        }
+    }
+
     pub fn spawn(&mut self, task: Task) {
         interrupts::without_interrupts(|| {
             TASK_MANAGER.lock().add_task(
@@ -57,7 +90,8 @@ impl Executor {
                     id: task.id(),
                     name: task.name(),
                     state: task.state(),
-                    cpu_ticks: task.cpu_ticks()
+                    cpu_ticks: task.cpu_ticks(),
+                    layer_id: task.layer_id(),
                 }
             );
         });
@@ -74,6 +108,8 @@ impl Executor {
     }
 
     fn run_ready_tasks(&mut self) {
+        self.accept_new_tasks();
+
         let Self {
             tasks,
             task_queue,
@@ -81,6 +117,23 @@ impl Executor {
         } = self;
 
         while let Some(task_id) = task_queue.pop() {
+            {
+                let mut manager = TASK_MANAGER.lock();
+                let is_killed = interrupts::without_interrupts(|| {
+                    manager.is_killed(task_id)
+                });
+
+                if is_killed {
+                    interrupts::without_interrupts(|| {
+                        manager.remove_task(task_id);
+                    });
+
+                    tasks.remove(&task_id);
+                    waker_cache.remove(&task_id);
+                    continue;
+                }
+            }
+
             let task = match tasks.get_mut(&task_id) {
                 Some(task) => task,
                 None => continue,
@@ -154,9 +207,9 @@ impl Executor {
         use x86_64::instructions::interrupts::{self, enable_and_hlt};
 
         interrupts::disable();
-        if self.task_queue.is_empty() {
+        if self.task_queue.is_empty() && NEW_TASKS_QUEUE.lock().is_empty() {
             enable_and_hlt();
-
+            
         } else {
             interrupts::enable();
         }

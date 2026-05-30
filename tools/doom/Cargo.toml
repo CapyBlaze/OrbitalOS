@@ -1,0 +1,21 @@
+[package]
+name = "doom"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "doom"
+path = "src/main.rs"
+test = false
+harness = false
+
+[build-dependencies]
+cc = "1.0"
+
+[dependencies]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

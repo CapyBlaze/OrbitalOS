@@ -18,18 +18,33 @@ pub static MOUSE_BUTTONS: AtomicU8 = AtomicU8::new(0);
 static mut MOUSE_LAYER_ID: u64 = 0;
 
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClickType {
+    Single,
+    Double,
+}
+
 pub struct ClickZone {
     pub x: i32,
     pub y: i32,
     pub width: i32,
     pub height: i32,
     pub layer_id: u64,
+    pub click_type: ClickType,
     pub action: Arc<dyn Fn() + Send + Sync>,
 }
 
+static LAST_CLICK_TIME: Mutex<u64> = Mutex::new(0);
+static LAST_CLICK_X: AtomicI32 = AtomicI32::new(0);
+static LAST_CLICK_Y: AtomicI32 = AtomicI32::new(0);
+
+const DOUBLE_CLICK_THRESHOLD_MS: u64 = 300;
+const DOUBLE_CLICK_SPATIAL_TOLERANCE: i32 = 5;
+
+
 pub static CLICK_REGISTRY: Mutex<Vec<ClickZone>> = Mutex::new(Vec::new());
 
-pub fn register_click_zone<F>(x: i32, y: i32, width: i32, height: i32, layer_id: u64, action: F)
+pub fn register_click_zone<F>(x: i32, y: i32, width: i32, height: i32, layer_id: u64, click_type: ClickType, action: F)
 where F: Fn() + Send + Sync + 'static { 
     let mut registry = CLICK_REGISTRY.lock();
     registry.push(ClickZone {
@@ -38,6 +53,7 @@ where F: Fn() + Send + Sync + 'static {
         width,
         height,
         layer_id,
+        click_type,
         action: Arc::new(action),
     });
 }
@@ -175,6 +191,31 @@ pub async fn print_mouse_packets() {
         } else if left_clicked_pressed {
             let mut action_to_execute = None;
 
+            let current_time = crate::task::TICKS.load(Ordering::Relaxed); 
+            
+            let mut last_time = LAST_CLICK_TIME.lock();
+            let last_x = LAST_CLICK_X.load(Ordering::Relaxed);
+            let last_y = LAST_CLICK_Y.load(Ordering::Relaxed);
+
+            let time_delta = current_time.saturating_sub(*last_time);
+            let space_delta_x = (mouse_x - last_x).abs();
+            let space_delta_y = (mouse_y - last_y).abs();
+
+            let detected_click_type = if time_delta < DOUBLE_CLICK_THRESHOLD_MS 
+                && space_delta_x < DOUBLE_CLICK_SPATIAL_TOLERANCE 
+                && space_delta_y < DOUBLE_CLICK_SPATIAL_TOLERANCE 
+            {
+                *last_time = 0; 
+                ClickType::Double
+
+            } else {
+                *last_time = current_time;
+                LAST_CLICK_X.store(mouse_x, Ordering::Relaxed);
+                LAST_CLICK_Y.store(mouse_y, Ordering::Relaxed);
+                ClickType::Single
+            };
+
+
             let top_layer_id = {
                 let manager = LAYER_MANAGER.lock();
                 let mouse_layer_id = unsafe { MOUSE_LAYER_ID };
@@ -195,7 +236,6 @@ pub async fn print_mouse_packets() {
                         }
                     }
                 }
-
                 found_id
             };
 
@@ -205,7 +245,7 @@ pub async fn print_mouse_packets() {
                     if zone.x <= mouse_x && mouse_x < zone.x + zone.width &&
                        zone.y <= mouse_y && mouse_y < zone.y + zone.height 
                     {
-                        if Some(zone.layer_id) == top_layer_id {
+                        if Some(zone.layer_id) == top_layer_id && zone.click_type == detected_click_type {
                             action_to_execute = Some(zone.action.clone());
                             break;
                         }
@@ -217,7 +257,6 @@ pub async fn print_mouse_packets() {
                 if let Some(layer_id) = top_layer_id {
                     LAYER_MANAGER.lock().bring_to_front(layer_id);
                 }
-
                 action();
             }
         }

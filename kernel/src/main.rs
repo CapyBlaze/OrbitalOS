@@ -73,12 +73,11 @@ pub extern "C" fn _start(
     // Initialize the executor and spawn tasks
     let mut executor = Executor::new();
     serial_println!("Boot: executor created");
-    
-    executor.spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
-    executor.spawn(Task::new("Mouse", os::task::mouse::print_mouse_packets()));
-    executor.spawn(Task::new("Render", os::task::render::render_loop()));
-    executor.spawn(Task::new("BadApple", os::apps::badapple::bad_apple()));
-    executor.spawn(Task::new("HudTime", os::apps::hud::time_update()));
+
+    os::task::executor::spawn(Task::new("Keyboard", os::task::keyboard::print_keypresses()));
+    os::task::executor::spawn(Task::new("Mouse", os::task::mouse::print_mouse_packets()));
+    os::task::executor::spawn(Task::new("Render", os::task::render::render_loop()));
+    os::task::executor::spawn(Task::new("HudTime", os::apps::hud::time_update()).with_layer(bg_id));
     serial_println!("Boot: tasks spawned");
 
 

@@ -1,8 +1,8 @@
 use alloc::{format, vec};
 
-use crate::{apps::{draw_window_app}, boot_info, drivers::ata, frame_buffer::{self, ColorRGB, FRAMEBUFFER, FontName}, serial_println, task::sleep};
+use crate::{apps::{AppInfo}, boot_info, drivers::ata, frame_buffer::{self, ColorRGB, FontName}, serial_println, task::sleep};
 
-pub async fn bad_apple() {
+pub async fn bad_apple(app_info: AppInfo) {
     let Some(entry) = boot_info::find_file("bad_apple.bin") else {
         serial_println!("badapple: payload not found in microfs");
         return;
@@ -23,45 +23,7 @@ pub async fn bad_apple() {
     let frame_size = width * height / 8;
     let frame_disk_sectors = (frame_size + 511) / 512;
     let mut frame_disk_buffer = vec![0u8; frame_disk_sectors * 512];
-
-
-    let (width_screen, height_screen) = {
-        let fb = FRAMEBUFFER.lock();
-        (fb.width, fb.height)
-    };
-    let app_x = (width_screen - width) / 2;
-    let app_y = (height_screen - height) / 2 - 50;
-
-
-    let layer_id = frame_buffer::LAYER_MANAGER.lock().create_layer(
-        width + 8, 
-        height + 18 + 28, 
-        app_x, 
-        app_y, 
-        10
-    );
-
-
-
-    
-
-    let local_x = 4;
-    let local_y = 24;
-
-    {
-        let mut manager = frame_buffer::LAYER_MANAGER.lock();
-        if let Some(layer) = manager.get_layer_mut(layer_id) {
-            layer.clear_transparent();
-            draw_window_app(
-                layer,
-                local_x,
-                local_y,
-                width,
-                height + 18,
-                "Bad Apple!!"
-            );
-        }
-    }
+    let (local_x, local_y) = (4, 24);
 
 
     for index in 0..frame_count {
@@ -70,26 +32,28 @@ pub async fn bad_apple() {
 
         {
             let mut manager = frame_buffer::LAYER_MANAGER.lock();
-            if let Some(layer) = manager.get_layer_mut(layer_id) {
-                layer.draw_bitmap_1bpp(
-                    local_x,
-                    local_y,
-                    width,
-                    height,
-                    frame_disk_buffer.as_mut_slice(),
-                    ColorRGB::new(0xFF, 0xFF, 0xFF),
-                    ColorRGB::new(0x00, 0x00, 0x00),
-                );
+            if let Some(app_layer_id) = app_info.layer_id {
+                if let Some(layer) = manager.get_layer_mut(app_layer_id) {
+                    layer.draw_bitmap_1bpp(
+                        local_x,
+                        local_y,
+                        width,
+                        height,
+                        frame_disk_buffer.as_mut_slice(),
+                        ColorRGB::new(0xFF, 0xFF, 0xFF),
+                        ColorRGB::new(0x00, 0x00, 0x00),
+                    );
 
-                let text_counter = format!("{:04}/{:04}", index + 1, frame_count);
-                layer.text_draw(
-                    local_x + 4,
-                    local_y + height + 2,
-                    text_counter.as_str(), 
-                    FontName::SpleenSmall, 
-                    ColorRGB::new(0x0a, 0x0a, 0x0a),
-                    ColorRGB::new(0xd9, 0xd9, 0xd9),
-                );
+                    let text_counter = format!("{:04}/{:04}", index + 1, frame_count);
+                    layer.text_draw(
+                        local_x + 4,
+                        local_y + height + 2,
+                        text_counter.as_str(), 
+                        FontName::SpleenSmall, 
+                        ColorRGB::new(0x0a, 0x0a, 0x0a),
+                        ColorRGB::new(0xd9, 0xd9, 0xd9),
+                    );
+                }
             }
         }
 

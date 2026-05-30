@@ -33,7 +33,7 @@ tools: FORCE
 	cd tools/badapple_converter && cargo run --release
 	cd tools/fonts_builder && cargo run --release
 	cd tools/picture_builder && cargo run --release
-	@echo "Bad Apple binary generated at $(PAYLOAD_BIN)"
+# 	cd tools/doom && cargo build --release && cp target/x86_64-unknown-none/release/doom ../../kernel/resources/doom.bin
 
 clean:
 	rm -f os.img kernel.bin 

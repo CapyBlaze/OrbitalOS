@@ -1,94 +1,101 @@
-use alloc::string::String;
+// use alloc::string::String;
 
-// use crate::{drivers, serial_println};
+// // use crate::{drivers, serial_println};
 
-pub struct Shell {
-    buffer: String,
-}
+// pub struct Shell {
+//     buffer: String,
+// }
 
-impl Shell {
-    pub fn new() -> Self {
-        Self {
-            buffer: String::new(),
-        }
-    }
+// impl Shell {
+//     pub fn new() -> Self {
+//         Self {
+//             buffer: String::new(),
+//         }
+//     }
 
-    pub fn prompt(&self) {
-        // color_print!(ColorCode::new(Color::LightGreen, Color::Black), "> ");
-    }
+//     pub fn prompt(&self) {
+//         // color_print!(ColorCode::new(Color::LightGreen, Color::Black), "> ");
+//     }
 
-    pub fn handle_char(&mut self, c: char) {
-        match c {
-            '\n' => {
-                // println!();
-                // serial_println!("Executing command: {}", c);
+//     pub fn handle_char(&mut self, c: char) {
+//         match c {
+//             '\n' => {
+//                 // println!();
+//                 // serial_println!("Executing command: {}", c);
 
-                self.execute();
-                self.buffer.clear();
-                self.prompt();
-            }
+//                 self.execute();
+//                 self.buffer.clear();
+//                 self.prompt();
+//             }
 
-            '\x08' => {
-                if self.buffer.pop().is_some() {
-                    // backspace!();
-                }
-            }
+//             '\x08' => {
+//                 if self.buffer.pop().is_some() {
+//                     // backspace!();
+//                 }
+//             }
 
-            _ => {
-                self.buffer.push(c);
-                // print!("{}", c);
-            }
-        }
-    }
+//             _ => {
+//                 self.buffer.push(c);
+//                 // print!("{}", c);
+//             }
+//         }
+//     }
 
-    fn execute(&self) {
-        match self.buffer.trim() {
-            "help" => {
-                // println!("help clear tasks");
-            }
+//     fn execute(&self) {
+//         match self.buffer.trim() {
+//             "help" => {
+//                 // println!("help clear tasks");
+//             }
 
-            "clear" => {
-                // clear_screen!();
-            }
+//             "clear" => {
+//                 // clear_screen!();
+//             }
 
-            "tasks" => {
-                // let manager = crate::task::manager::TASK_MANAGER.lock();
+//             "tasks" => {
+//                 // let manager = crate::task::manager::TASK_MANAGER.lock();
 
-                // println!("ID NAME STATE CPU");
-                // for _task in manager.list_tasks() {
-                    // println!(
-                    //     "{} {} {:?} {}",
-                    //     task.id.get(),
-                    //     task.name,
-                    //     task.state,
-                    //     task.cpu_ticks
-                    // );
-                // }
-            }
+//                 // println!("ID NAME STATE CPU");
+//                 // for _task in manager.list_tasks() {
+//                     // println!(
+//                     //     "{} {} {:?} {}",
+//                     //     task.id.get(),
+//                     //     task.name,
+//                     //     task.state,
+//                     //     task.cpu_ticks
+//                     // );
+//                 // }
+//             }
 
-            "rtc" => {
-                // let _time = drivers::rtc::read_rtc();
+//             "rtc" => {
+//                 // let _time = drivers::rtc::read_rtc();
 
-                // println!(
-                //     "{:02}:{:02}:{:02}",
-                //     time.hour,
-                //     time.minute,
-                //     time.second
-                // );
+//                 // println!(
+//                 //     "{:02}:{:02}:{:02}",
+//                 //     time.hour,
+//                 //     time.minute,
+//                 //     time.second
+//                 // );
 
-                // println!(
-                //     "{:02}/{:02}/20{:02}",
-                //     time.day,
-                //     time.month,
-                //     time.year
-                // );
-            }
+//                 // println!(
+//                 //     "{:02}/{:02}/20{:02}",
+//                 //     time.day,
+//                 //     time.month,
+//                 //     time.year
+//                 // );
+//             }
 
-            "" => {}
+//             "" => {}
 
-            _command => {
-                // println!("unknown command: {}", command);
-            }
-        }
-    }
+//             _command => {
+//                 // println!("unknown command: {}", command);
+//             }
+//         }
+//     }
+// }
+
+use crate::apps::AppInfo;
+
+
+pub async fn shell(_app_info: AppInfo) {
+    
 }

@@ -25,6 +25,7 @@ pub enum TaskState {
     Running,
     Sleeping,
     Finished,
+    Killed,
 }
 
 pub struct Task {
@@ -33,6 +34,7 @@ pub struct Task {
     state: TaskState,
     cpu_ticks: u64,
     wake_up_time: Option<u64>,
+    layer_id: Option<u64>,
     future: Pin<Box<dyn Future<Output = ()> + Send>>,
 }
 
@@ -44,8 +46,14 @@ impl Task {
             state: TaskState::Ready,
             cpu_ticks: 0,
             wake_up_time: None,
+            layer_id: None,
             future: Box::pin(future),
         }
+    }
+
+    pub fn with_layer(mut self, layer_id: u64) -> Self {
+        self.layer_id = Some(layer_id);
+        self
     }
 
     pub fn poll(&mut self, context: &mut Context) -> Poll<()> {
@@ -74,6 +82,10 @@ impl Task {
 
     pub fn wake_up_time(&self) -> Option<u64> {
         self.wake_up_time
+    }
+
+    pub fn layer_id(&self) -> Option<u64> {
+        self.layer_id
     }
 }
 

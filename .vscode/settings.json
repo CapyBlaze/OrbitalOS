@@ -2,6 +2,7 @@
     "rust-analyzer.linkedProjects": [
         "./kernel/Cargo.toml"
         // "./tools/badapple_converter/Cargo.toml"
+        // "./tools/doom/Cargo.toml"
         // "./tools/picture_builder/Cargo.toml"
         // "./tools/fonts_builder/Cargo.toml"
         // "./tools/image_builder/Cargo.toml"
