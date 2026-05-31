@@ -2,7 +2,7 @@ use alloc::{collections::BTreeMap};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-use crate::serial_println;
+// use crate::serial_println;
 
 use super::{TaskId, TaskState};
 
@@ -42,7 +42,7 @@ impl TaskManager {
 
     pub fn kill_tasks_by_layer(&mut self, layer_id: u64) {
         for task in self.tasks.values_mut() {
-            serial_println!("Killing task {} (ID {:#?}) with layer ID {:#?}", task.name, task.id.get(), task.layer_id);
+            // serial_println!("Killing task {} (ID {:#?}) with layer ID {:#?}", task.name, task.id.get(), task.layer_id);
             if task.layer_id == Some(layer_id) {
                 task.state = TaskState::Killed;
             }
