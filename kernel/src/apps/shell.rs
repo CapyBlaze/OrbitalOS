@@ -93,9 +93,23 @@
 //     }
 // }
 
-use crate::apps::AppInfo;
+use crate::{apps::AppInfo, frame_buffer::{self, ColorRGB, FontName}};
 
 
-pub async fn shell(_app_info: AppInfo) {
-    
+pub async fn shell(app_info: AppInfo) {
+    {
+        let mut manager = frame_buffer::LAYER_MANAGER.lock();
+        if let Some(app_layer_id) = app_info.layer_id {
+            if let Some(layer) = manager.get_layer_mut(app_layer_id) {
+                layer.text_draw(
+                    (app_info.window_width - 12 * 32) / 2,
+                    (app_info.window_height - 64) / 2,
+                    "COMMING SOON", 
+                    FontName::SpleenBigBig, 
+                    ColorRGB::new(0x0a, 0x0a, 0x0a),
+                    ColorRGB::new(0xd9, 0xd9, 0xd9),
+                );
+            }
+        }
+    }
 }

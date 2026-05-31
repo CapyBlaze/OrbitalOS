@@ -1,4 +1,4 @@
-use crate::apps::AppInfo;
+use crate::{apps::AppInfo};
 
 // static mut KERNEL_API: Option<KernelApi> = None;
 
@@ -11,6 +11,26 @@ use crate::apps::AppInfo;
 // static mut DOOM_STACK: [u8; 512 * 1024] = [0; 512 * 1024];
 
 pub async fn doom(_app_info: AppInfo) {
+    // {
+    //     let mut manager = frame_buffer::LAYER_MANAGER.lock();
+    //     if let Some(app_layer_id) = app_info.layer_id {
+    //         if let Some(layer) = manager.get_layer_mut(app_layer_id) {
+    //             layer.put_pixel(5, 25, ColorRGB::new(0x00,0x00,0x00));
+
+    //             layer.text_draw(
+    //                 (app_info.window_width - 12 * 32) / 2,
+    //                 (app_info.window_height - 64) / 2,
+    //                 "COMMING SOON", 
+    //                 FontName::SpleenBigBig, 
+    //                 ColorRGB::new(0x0a, 0x0a, 0x0a),
+    //                 ColorRGB::new(0xd9, 0xd9, 0xd9),
+    //             );
+    //         }
+    //     }
+    // }
+
+
+
     // let Some(bytes) = boot_info::load_file("doom.bin") else {
     //     serial_println!("Doom: failed to load doom.bin");
     //     return;
