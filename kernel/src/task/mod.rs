@@ -2,7 +2,6 @@ use core::{future::Future, pin::Pin, sync::atomic::{AtomicU64, Ordering}, task::
 use alloc::{boxed::Box};
 
 pub mod simple_executor;
-pub mod keyboard;
 pub mod mouse;
 pub mod executor;
 pub mod yield_now;

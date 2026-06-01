@@ -4,6 +4,7 @@
 *.bin
 *.img
 *.log
+*.iso
 
 TODO.md
 !kernel/resources/**/*.bin
