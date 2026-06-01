@@ -1,18 +1,19 @@
 # OrbitalOS
 
-Un OS minimaliste et bare-metal écrit en Rust, avec bootloader custom, shell, et apps intégrées.
+A minimalist bare-metal OS written in Rust, featuring a custom bootloader, shell, and built-in applications.
 
-> **Repo :** [github.com/CapyBlaze/OrbitalOS](https://github.com/CapyBlaze/OrbitalOS)
+> **Repo:** [github.com/CapyBlaze/OrbitalOS](https://github.com/CapyBlaze/OrbitalOS?utm_source=chatgpt.com)
 
 ---
 
-## ⚡ Tester sans compiler
+## ⚡ Run without building
 
-Tu n'as pas envie de setup toute la toolchain ? Télécharge directement le `os.iso` depuis la dernière release :
+Don’t want to set up the full toolchain? Just download the `os.iso` from the latest release:
 
-👉 **[Releases → v1.0.0](https://github.com/CapyBlaze/OrbitalOS/releases/tag/v0.1.0)**
+👉 **Releases → v0.1.0**
+[GitHub Releases](https://github.com/CapyBlaze/OrbitalOS/releases/tag/v0.1.0?utm_source=chatgpt.com)
 
-Puis lance-le avec QEMU :
+Then run it with QEMU:
 
 ```bash
 qemu-system-x86_64 -drive format=raw,file=os.iso -serial stdio -vga std -display sdl,show-cursor=off
@@ -22,44 +23,52 @@ qemu-system-x86_64 -drive format=raw,file=os.iso -serial stdio -vga std -display
 
 ## Screenshots
 
-<!-- Remplace ces lignes par tes vraies captures d'écran une fois uploadées sur GitHub -->
+<!-- Replace these with real screenshots once uploaded to GitHub -->
 
-| HUD & Desktop | Bad Apple!! |
-|:---:|:---:|
-| ![HUD](docs/screenshots/hud.png) | ![Bad Apple](docs/screenshots/badapple.png) |
+|             HUD & Desktop            |                 Bad Apple!!                 |
+| :----------------------------------: | :-----------------------------------------: |
+|   ![HUD](docs/screenshots/hud.png)   | ![Bad Apple](docs/screenshots/badapple.png) |
+|                 Shell                |                                             |
+| ![Shell](docs/screenshots/shell.png) |                                             |
 
 ---
 
-## Build depuis les sources
+## Build from source
 
-### Prérequis
+### Requirements
 
-- `nasm`
-- `rust` + `cargo` (target `x86_64-os` custom)
-- `rust-objcopy` (`cargo install cargo-binutils`)
-- `qemu-system-x86_64`
+* `nasm`
+* `Rust` + `Cargo` (custom `x86_64-os` target)
+* `rust-objcopy` (`cargo install cargo-binutils`)
+* `qemu-system-x86_64`
 
-### Commandes
+---
+
+### Build commands
 
 ```bash
-# Build complet (bootloader + kernel → os.iso)
+# Full build (bootloader + kernel → os.iso)
 make
 
-# Lancer dans QEMU
+# Run in QEMU
 make run
 
-# Lancer sans rebuild (si os.iso existe déjà)
+# Run without rebuilding (if os.iso already exists)
 make run-gui
 ```
 
-### Générer les ressources
+---
+
+### Generate assets
 
 ```bash
-# Encode les frames Bad Apple, compile les fonts, convertit les icônes
+# Encode Bad Apple frames, compile fonts, convert icons
 make tools
 ```
 
-### Nettoyage
+---
+
+### Clean build artifacts
 
 ```bash
 make clean
