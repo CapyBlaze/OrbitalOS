@@ -1,12 +1,12 @@
 .PHONY: all clean run tools run-gui FORCE
 
-all: os.img
+all: os.iso
 
 BOOT_MANIFEST = bootloader/boot_manifest.bin
 KERNEL_SECTORS_INC = bootloader/kernel_sectors.inc
 PAYLOAD_BIN = kernel/resources/bad_apple.bin
 
-os.img: kernel.bin bootloader/boot.bin bootloader/stage2.bin
+os.iso: kernel.bin bootloader/boot.bin bootloader/stage2.bin
 	cargo run --manifest-path tools/image_builder/Cargo.toml --release
 
 $(KERNEL_SECTORS_INC): kernel.bin
@@ -23,11 +23,11 @@ kernel.bin: FORCE
 	cd kernel && cargo build --release
 	rust-objcopy -O binary kernel/target/x86_64-os/release/os kernel.bin
 
-run: os.img
-	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display sdl,show-cursor=off
+run: os.iso
+	qemu-system-x86_64 -drive format=raw,file=os.iso -serial stdio -vga std -display sdl,show-cursor=off
 
 run-gui: FORCE
-	qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display sdl,show-cursor=off
+	qemu-system-x86_64 -drive format=raw,file=os.iso -serial stdio -vga std -display sdl,show-cursor=off
 
 tools: FORCE
 	cd tools/badapple_converter && cargo run --release
@@ -36,7 +36,7 @@ tools: FORCE
 # 	cd tools/doom && cargo build --release && cp target/x86_64-unknown-none/release/doom ../../kernel/resources/doom.bin
 
 clean:
-	rm -f os.img kernel.bin 
+	rm -f os.iso kernel.bin 
 	rm -f bootloader/boot.bin 
 	rm -f bootloader/stage2.bin 
 	rm -f kernel/kernel_entry.o 

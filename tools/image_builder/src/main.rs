@@ -112,7 +112,7 @@ fn generate_layout_inc(stage2_sectors: u32, manifest_sectors: u32, kernel_sector
 // puis kernel
 // puis resources
 
-fn build_image() {
+fn build_iso() {
     let boot = fs::read("bootloader/boot.bin").unwrap();
     let stage2 = fs::read("bootloader/stage2.bin").unwrap();
     let kernel = fs::read("kernel.bin").unwrap();
@@ -275,7 +275,7 @@ fn build_image() {
 
     
     // Save image
-    let mut file = fs::File::create("os.img").unwrap();
+    let mut file = fs::File::create("os.iso").unwrap();
 
     file.write_all(&img).unwrap();
 }
@@ -297,6 +297,6 @@ fn main() {
         }
 
     } else {
-        build_image();
+        build_iso();
     }
 }

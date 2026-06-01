@@ -8,14 +8,14 @@ Un OS minimaliste et bare-metal écrit en Rust, avec bootloader custom, shell, e
 
 ## ⚡ Tester sans compiler
 
-Tu n'as pas envie de setup toute la toolchain ? Télécharge directement le `os.img` depuis la dernière release :
+Tu n'as pas envie de setup toute la toolchain ? Télécharge directement le `os.iso` depuis la dernière release :
 
 👉 **[Releases → v1.0.0](https://github.com/CapyBlaze/OrbitalOS/releases/tag/v0.1.0)**
 
 Puis lance-le avec QEMU :
 
 ```bash
-qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display sdl,show-cursor=off
+qemu-system-x86_64 -drive format=raw,file=os.iso -serial stdio -vga std -display sdl,show-cursor=off
 ```
 
 ---
@@ -42,13 +42,13 @@ qemu-system-x86_64 -drive format=raw,file=os.img -serial stdio -vga std -display
 ### Commandes
 
 ```bash
-# Build complet (bootloader + kernel → os.img)
+# Build complet (bootloader + kernel → os.iso)
 make
 
 # Lancer dans QEMU
 make run
 
-# Lancer sans rebuild (si os.img existe déjà)
+# Lancer sans rebuild (si os.iso existe déjà)
 make run-gui
 ```
 
